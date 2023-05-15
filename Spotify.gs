@@ -20,6 +20,46 @@ class SpotifyFactory {
 
   }
 
+
+  async GetData(accessToken, url, getAllPages = false) {
+    let options = {
+      "muteHttpExceptions" : true,
+      "headers" : {
+        "Authorization" : "Bearer " + accessToken,
+        "Content-Type" : "application/json",
+      }
+    };
+
+    let response = UrlFetchApp.fetch(url, options);
+    let firstPage = response.getContentText();
+    console.info(`Response Code`, `${response.getResponseCode()} - ${RESPONSECODES[response.getResponseCode()]}`);
+
+    if (!getAllPages) return [firstPage];  // Bail out if we only wanted the first page
+
+    
+    let data = [firstPage];  // Put first page in array for return with following pages
+
+    let pageObj = JSON.parse(firstPage);
+    // Strip any outer shell, if there is one
+    if (Object.values(pageObj).length == 1) pageObj = Object.values(pageObj)[0];
+
+    // Retrieve URL for next page
+    let nextPageUrl = pageObj[`next`];
+    while (nextPageUrl) {
+      
+      nextPage = UrlFetchApp.fetch(nextPageUrl, options).getContentText();  // Retrieve the next page
+      data.push(nextPage);
+      pageObj = JSON.parse(nextPage);   // Retrieve URL for next page    
+      if (Object.values(pageObj).length == 1) pageObj = Object.values(pageObj)[0];   // Strip any outer shell, if there is one
+      nextPageUrl = pageObj[`next`]; 
+    }
+    return data;
+  }
+
+  /**
+   * MAIN ENTRY POINT!
+   * Refresh the list of Artists from Spotify
+   */
   async RefreshArtists() {
 
     if (config.getTopArtists) {
@@ -63,7 +103,7 @@ class SpotifyFactory {
     // Retrieve data
     let params = `?limit=50`;
     console.info(`Getting artists from saved tracks`)
-    let data = await getData(accessToken, savedTracksUrl + params, true);
+    let data = await this.GetData(accessToken, savedTracksUrl + params, true);
 
     // Fold array of responses into single structure
     if (!data) console.warn(`Unable to get artists from saved tracks`);
@@ -73,7 +113,7 @@ class SpotifyFactory {
       track.track.artists.forEach(artist => artistsArr.push(artist.name));
     });
 
-    artistsArr = arrUnique(artistsArr);
+    artistsArr = UniqueArray(artistsArr);
     lastRow = sheet.getLastRow();
 
     console.warn(`Artists Array`, artistsArr);
@@ -124,7 +164,7 @@ class SpotifyFactory {
     let params = `?playlist_id=` + playlistId;
     params += `&limit=50`
     console.info(`Getting artists from playlists`)
-    let data = await getData(accessToken, `${playlistUrl}/${playlistId}${params}`);
+    let data = await this.GetData(accessToken, `${playlistUrl}/${playlistId}${params}`);
     // console.info(data);
 
     // Fold array of responses into single structure
@@ -143,7 +183,7 @@ class SpotifyFactory {
       });
     })
 
-    artistsArr = arrUnique(artistsArr);
+    artistsArr = UniqueArray(artistsArr);
     console.warn(`Playlist Artists: ${artistsArr}`);
     return artistsArr;
   }
@@ -161,18 +201,18 @@ class SpotifyFactory {
     let short_term = [];
 
     // Request for LONG TERM top artists
-    artistsArr.concat(await getTopData(`long_term`, 0));
+    artistsArr.concat(await this.GetTopData(`long_term`, 0));
     console.info(long_term1);
     
     // Request for LONG TERM top artists OFFSET +48
-    artistsArr = artistsArr.concat(await getTopData(`long_term`, 48));
+    artistsArr = artistsArr.concat(await this.GetTopData(`long_term`, 48));
     console.info(long_term2);
     
     // Re-request for MEDIUM TERM top artists
-    artistsArr = artistsArr.concat(await getTopData(`medium_term`, 0));
+    artistsArr = artistsArr.concat(await this.GetTopData(`medium_term`, 0));
 
     // Re-request for SHORT TERM top artists
-    artistsArr = artistsArr.concat(await getTopData(`short_term`, 0));
+    artistsArr = artistsArr.concat(await this.GetTopData(`short_term`, 0));
     
     let final = [];
 
@@ -180,7 +220,7 @@ class SpotifyFactory {
       console.info(`Returned 0 top artists somehow`)
       return artistsArr;
     }
-    final = arrUnique(artistsArr);
+    final = UniqueArray(artistsArr);
     return final;
   }
 
@@ -193,13 +233,14 @@ class SpotifyFactory {
    * @returns {[artists]} list of artists
    */
   async GetTopData(term, offset) {
-    let accessToken = await this._RetrieveAuth();
+    let authService = new SpotifyAuthenticate()
+    let accessToken = await authService.RetrieveAuth();
     console.warn(`Access token: ${JSON.stringify(accessToken)}`);
     
     let params = `?time_range=${term}&limit=50&offset=${offset}`;
 
     console.info(`Getting top artists (long term)...`)
-    let resp = await getData(accessToken, topArtistsUrl + params,true);
+    let resp = await this.GetData(accessToken, topArtistsUrl + params,true);
     if (!resp) console.warn(`No data received (long term)`);
 
     let artistsArr = [];
@@ -228,15 +269,16 @@ class SpotifyFactory {
 class SpotifyAuthenticate {
   constructor() {
     this.baseAuthUrl = `https://accounts.spotify.com`;
-    this.authUrl = `${this.baseAuthUrl}/authorize`;
-    this.refreshUrl = `${this.baseAuthUrl}/api/token`;
+    this.authUrl = `https://accounts.spotify.com/authorize`;
+    this.refreshUrl = `https://accounts.spotify.com/api/token`;
     this.scope = "user-library-read playlist-read-private playlist-read-collaborative user-top-read user-follow-read";
+    this.clientID = config.clientIdSpotify;
   }
 
-  async DoGet(e) {
+  DoGet(e) {
     if (e.parameter.error) {
       let template = HtmlService.createTemplateFromFile("auth_error");
-      template.errorText = e.parameter.error;
+      template.errorText = `Whoops: ${e.parameter.error}`;
       return template.evaluate();
     } else if (!e.parameter.code) {
       return HtmlService
@@ -255,10 +297,10 @@ class SpotifyAuthenticate {
   }
 
   // Generate URL for requesting authorization using Authorization Code Flow
-  async GenerateAuthUrl() {
+  GenerateAuthUrl() {
     let url = ScriptApp.getService().getUrl();
-    let params = `?response_type=code&client_id=${config.clientIdSpotify}&scope=${this.scope}&redirect_uri=${url}`;
-    return authUrl + encodeURI(params);
+    let params = `?response_type=code&client_id=${this.clientID}&scope=${this.scope}&redirect_uri=${url}`;
+    return this.authUrl + encodeURI(params);
   }
 
   // Retrieve refreshable auth info
@@ -276,7 +318,7 @@ class SpotifyAuthenticate {
       }
     };
 
-    let response = UrlFetchApp.fetch(refreshUrl, options);
+    let response = await UrlFetchApp.fetch(refreshUrl, options);
 
     // Grab the values we're looking for and return them
     let newTokens = JSON.parse(response.getContentText());
@@ -286,7 +328,7 @@ class SpotifyAuthenticate {
       expiry : now + newTokens.expires_in,
     };
     console.info(`Token: ${authInfo.accessToken}`);
-    return authInfo;
+    return await authInfo;
   }
 
   // Refresh auth info with refresh token
@@ -303,7 +345,7 @@ class SpotifyAuthenticate {
       }
     };
 
-    let response = UrlFetchApp.fetch(refreshUrl, options);
+    let response = await UrlFetchApp.fetch(refreshUrl, options);
 
     // Grab the values we're looking for and return them
     let newTokens = JSON.parse(response.getContentText());
@@ -313,7 +355,7 @@ class SpotifyAuthenticate {
     };
 
     if (newTokens.refresh_token) authInfo[refreshToken] = newTokens.refresh_token;
-    return authInfo;
+    return await authInfo;
   }
 
   StoreAuth (authInfo) {
@@ -348,7 +390,7 @@ class SpotifyAuthenticate {
     }
 
     // Return just what we need for retrieving data
-    return authInfo.accessToken;
+    return await authInfo.accessToken;
   }
 
 }
@@ -357,11 +399,19 @@ class SpotifyAuthenticate {
 /**
  * Main Call on HTML page
  */
-const generateAuthUrl = () => {
-  const s = new SpotifyAuthenticate();
-  s.GenerateAuthUrl();
-}
+const generateAuthUrl = () => new SpotifyAuthenticate().GenerateAuthUrl();
 
+
+/**
+ * Main Call to Refresh
+ */
+const refreshArtists = () => new SpotifyFactory().RefreshArtists();
+
+
+/**
+ * Main Call to Get Authentication
+ */
+const doGet = (e) => new SpotifyAuthenticate().DoGet(e);
 
 
 

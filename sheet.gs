@@ -36,11 +36,11 @@ const removeExpiredEntries = (sheet, dateHeaderName = "Date") => {
     for (let i = 0; i < range.length; i++){
       let date = new Date(range[i][0]);
       if (date <= today) {
-        rowsToDel.push(i+2);
+        rowsToDel.push(i + 2);
       }
     }
     for (let i = 0; i < rowsToDel.length; i++){
-      console.info(`Removing expired event: ${data[i+1][0]}, Date: ${range[rowsToDel[i]-2]}`);
+      console.info(`Removing expired event: ${data[i + 1][0]}, Date: ${range[rowsToDel[i] - 2]}`);
       sheet.deleteRow(rowsToDel[i]);
     }
   } catch (err) {
@@ -176,8 +176,7 @@ const writeArrayToColumn = (array, sheet, col) => {
   let outerArray = [];
 
   for (let i = 0; i < array.length; i++) {
-    let tempArray = [...array];
-    outerArray.push(tempArray);
+    outerArray.push([...array]);
   };
   let range = sheet.getRange(sheet.getLastRow() + 1, col, array.length, 1);
   range.setValues(outerArray);
@@ -236,7 +235,7 @@ const deleteEmptyRows = (sheet) => {
  * The entire column, including cells outside of the selected range,
  * must be empty to be deleted.
  * Called from menu option.
- */
+ * @NOTIMPLEMENTED
 const deleteEmptyColumns = (sheet) => {
   if(typeof sheet != `object`) sheet = SpreadsheetApp.getActiveSheet();       // Gets active selection and dimensions.
   let activeRange = sheet.getActiveRange();
@@ -286,11 +285,12 @@ const deleteEmptyColumns = (sheet) => {
   rangesToDelete.reverse().forEach(([start, end]) => sheet.deleteColumns(start, end - start + 1));
   SpreadsheetApp.flush();
 }
+*/
 
 /**
  * Trims all of the unused rows and columns outside of selected data range.
  * Called from menu option.
- */
+ * @NOTIMPLEMENTED
 const cropSheet = () => {
   let dataRange = SpreadsheetApp.getActiveSheet().getDataRange();
   let sheet = dataRange.getSheet();
@@ -316,12 +316,13 @@ const cropSheet = () => {
     sheet.deleteColumns(numColumns + 1, maxColumns - numColumns);
   }
 }
+*/
 
 /**
  * Copies value of active cell to the blank cells beneath it. 
  * Stops at last row of the sheet's data range if only blank cells are encountered.
  * Called from menu option.
- */
+ * @NOTIMPLEMENTED
 const fillDownData = () => {
 
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -360,12 +361,13 @@ const fillDownData = () => {
     console.info("There are no empty cells below the Active Cell to fill.");
   }
 }
+*/
 
 /**
  * A helper function to display messages to user.
  * @param {string} message - Message to be displayed.
  * @param {string} caller - {Optional} text to append to title.
- */
+ * @NOTIMPLEMENTED
 const showMessage = (message, caller) => {
   if (caller) title += ` : ${caller}`;
   let ui = SpreadsheetApp.getUi();
@@ -375,7 +377,7 @@ const showMessage = (message, caller) => {
     ui.ButtonSet.OK,
   );
 }
-
+*/
 
 
 

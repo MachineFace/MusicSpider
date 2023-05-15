@@ -90,13 +90,7 @@ const collateArrays = (path, objects) => {
  * Remove duplictes from an array
  * @param {array} array
  */
-const arrUnique = (array) => {
-  if (array.length < 1) {
-    console.error(`Array length 0 - arrUnique`);
-    return [];
-  }
-  return [...new Set(array)];
-}
+const UniqueArray = (array) => [...new Set(array)];
 
 
 /**

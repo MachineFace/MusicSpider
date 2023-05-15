@@ -1,6 +1,6 @@
 const sendEmail = () => {
   const ticketmaster = new TicketmasterFactory();
-  let eventsArr = ticketmaster.BuildEventsArr();
+  let eventsArr = ticketmaster.BuildEventsArray();
   let msgSubjRaw = [];
   let msgSubj = `${SERVICE_NAME} - `;
   if (Object.keys(eventsArr).length === 0) {
@@ -16,8 +16,7 @@ const sendEmail = () => {
     msgSubjRaw.push(actsArr[0]);
   }
   // remove duplicates from list of acts
-  let uniq = [...new Set(msgSubjRaw)];
-  msgSubj += uniq.join(', ');
+  msgSubj += [...new Set(msgSubjRaw)].join(', ');
 
   new Emailer({
     message: new CreateMessage({events: eventsArr}),

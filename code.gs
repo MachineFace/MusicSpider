@@ -44,64 +44,23 @@ const BarMenu = () => {
 };
 
 
-
 const addArrayToSheet = (sheet, column, values) => {
   const range = [column, `1:`, column, values.length]
     .join(``);
   sheet.getRange(range).setValues(values.map((v) => [ v ]));
 }
 
-const artistsList = () => {
-  let artistRows = artistSheet.getLastRow() - 1;
-  if (artistRows == 0) artistRows = 1;
-  let artistsArr = artistSheet.getRange(2,1,artistRows,1).getValues();
-  return artistsArr;
-}
-
-const getData = async (accessToken, url, getAllPages = false) => {
-
-  let options = {
-    "muteHttpExceptions" : true,
-    "headers" : {
-      "Authorization" : "Bearer " + accessToken,
-      "Content-Type" : "application/json",
-    }
-  };
-
-  let response = UrlFetchApp.fetch(url, options);
-  let firstPage = response.getContentText();
-  console.info(`Response Code`, `${response.getResponseCode()} - ${RESPONSECODES[response.getResponseCode()]}`);
-
-  if (!getAllPages) return [firstPage];  // Bail out if we only wanted the first page
-
-  
-  let data = [firstPage];  // Put first page in array for return with following pages
-
-  let pageObj = JSON.parse(firstPage);
-  // Strip any outer shell, if there is one
-  if (Object.values(pageObj).length == 1) pageObj = Object.values(pageObj)[0];
-
-  // Retrieve URL for next page
-  let nextPageUrl = pageObj[`next`];
-  while (nextPageUrl) {
-    
-    nextPage = UrlFetchApp.fetch(nextPageUrl, options).getContentText();  // Retrieve the next page
-    data.push(nextPage);
-    pageObj = JSON.parse(nextPage);   // Retrieve URL for next page    
-    if (Object.values(pageObj).length == 1) pageObj = Object.values(pageObj)[0];   // Strip any outer shell, if there is one
-    nextPageUrl = pageObj[`next`]; 
-  }
-  return data;
-}
-
-// Just a wrapper function to simplify some code
-const xmlElement = (type, text) => XmlService
-  .createElement(type)
-  .setText(text);
-
 const main = () => {
   // await refreshArtists();
   // await refreshEvents();
   // await sendEmail();
 }
+
+
+
+const xmlElement = (type, text) => XmlService
+  .createElement(type)
+  .setText(text);
+
+
 
