@@ -1,26 +1,26 @@
 const sendEmail = () => {
   const ticketmaster = new TicketmasterFactory();
-  let eventsArr = ticketmaster.BuildEventsArray();
+  let events = ticketmaster.BuildEventsArray();
   let msgSubjRaw = [];
   let msgSubj = `${SERVICE_NAME} - `;
-  if (Object.keys(eventsArr).length === 0) {
-    console.warn("No events to add to email.")
+  if (Object.keys(events).length === 0) {
+    console.warn("No events to add to email.");
     return;
   }
-  for (const [index, [key]] of Object.entries(Object.entries(eventsArr))) {
-    if (eventsArr[key].acts==""){
-      msgSubjRaw.push(eventsArr[key].eventTitle);
+  for (const [index, [key]] of Object.entries(Object.entries(events))) {
+    if (events[key].acts == ""){
+      msgSubjRaw.push(events[key].eventTitle);
       continue;
     }
-    let actsArr = eventsArr[key].acts.split(',');
-    msgSubjRaw.push(actsArr[0]);
+    let acts = events[key].acts.split(',');
+    msgSubjRaw.push(acts[0]);
   }
-  // remove duplicates from list of acts
-  msgSubj += [...new Set(msgSubjRaw)].join(', ');
+  
+  msgSubj += [...new Set(msgSubjRaw)].join(', ');    // remove duplicates from list of acts
 
   new Emailer({
-    message: new CreateMessage({events: eventsArr}),
-    email: config.email,
+    message: new CreateMessage({events : events}),
+    email: PropertiesService.getScriptProperties().getProperty(`email`),
     subject: msgSubj,
   });
 }
@@ -45,7 +45,6 @@ class Emailer {
   }
 
   SendEmail () {
-    // const staff = BuildStaff();
     try {
       console.info(`Sending  email to ${this.email}.`);
       GmailApp.sendEmail(this.email, this.subject, "", {
@@ -94,7 +93,7 @@ class CreateMessage
       .tg {
         border-collapse:collapse;
         border-spacing:0;
-        }
+      }
       .tg td {
         border-color:black;
         border-style:solid;
@@ -126,26 +125,19 @@ class CreateMessage
     message += `<tbody><tr style="border-collapse: collapse;"><td valign="top" style="padding: 0;Margin: 0;">`
     message += `<table class="tg" align="center" style="border-collapse: collapse;border-spacing: 0px;background-color: #ffffff;width: 750px;"><thead>`
     message += `<tr><td colspan=2><div style="text-align: center;"><br/><br/>`
-    message += `<a href="https://github.com/cparsell/music-spider">`
+    message += `<a href="https://github.com/MachineFace/MusicSpider">`
     message += `<img src="https://i.postimg.cc/HkVc4bCq/music-spider-logo-nobg.png" height="22%" width="22%"/></a><br>`;
     message += `<span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;">`;
     message += `<strong>${SERVICE_NAME.toLowerCase()}</strong><br><br></span></div></td></tr></thead>`;
     message += `<tbody>`
-    // for (const key of Object.keys(this.events)) { 
 
+    // for (const key of Object.keys(this.events)) { 
     // iterate through list of events
     for (const [index, [key]] of Object.entries(Object.entries(this.events))) {
-      const {date, city, venue, url, image, eventTitle, acts} = this.events[key];
-      let actsArr = [];
-      let actsB = [];
-      //turn text into array
-      if (acts != undefined) actsArr = acts.split(',');
-      // look for acts' names in event name - if name is in event name, dont list it again
-      for (let i=0;i<actsArr.length;i++) {
-        if (!eventTitle.match(actsArr[i])) {
-          actsB.push(actsArr[i]);
-        }
-      }
+      const { date, city, venue, url, image, eventTitle, acts } = this.events[key];
+      let actsArray = [...new Set(acts.split(','))];
+      actsArray = actsArray.map(x => x.toUpperCase());
+
       let eDate = new Date(key);
       let eventDay = eDate.getDay();
       let eventDayNum = eDate.getDate();
@@ -153,7 +145,7 @@ class CreateMessage
       let eventYear = eDate.getFullYear();
       let eventTime = Utilities.formatDate(eDate, "PST", "h a");
       // Start a new table row every even event
-      if (isEven(index)) {
+      if (new Common().IsEven(index)) {
         message += `<tr>`;
       }
       message += `<td class="tg-0lax" style="height:300px;vertical-align:top;"><div style="text-align: left;margin-left: 10px;">`;
@@ -161,9 +153,9 @@ class CreateMessage
       message += `<img src='${image}' class="" style="width:90%;float:center;width:350px;height:200px;object-fit:cover;"/></div>`;
       message += `<span style="font-family: Averta,Helvetica Neue,Helvetica,Arial,sans-serif;">`;
       message += `<a href='${url}' style="text-decoration:none;"><span style="color:#44494c;font-size:20px;"><strong>${eventTitle}</strong></span></a><br/>`;
-      let actsUpper = actsB.map(function(x){ return x.toUpperCase(); })
-      if (actsUpper.length > 1 || !eventTitle.toUpperCase().match(actsUpper[0])) {
-        actsB.forEach((act, index) => {
+      
+      if (actsArray.length > 1 || !eventTitle.toUpperCase().match(actsArray[0])) {
+        actsArray.forEach((act, index) => {
           if (index == 0) message += `with `;
           if (!eventTitle.toUpperCase().match(act.toUpperCase()) && index < 6) {
             message += (index == actsB.length-1) ?  `${act}` : `${act}, `;
@@ -175,7 +167,7 @@ class CreateMessage
       message += `<span style="color:#696969;font-size:12px;font-family:georgia,times,times new roman,serif;">at ${venue}, ${city}<br/> `;
       message += `<strong>${dayNames[eventDay]}, ${monthNames[eventMonth]} ${eventDayNum} ${eventYear}</strong> ${eventTime}</span></span></div>`;
       message += `<br/></td>`;
-      if (!isEven(index)) message += `</tr><br/>`; // End table row every odd event
+      if (new Common().IsOdd(index)) message += `</tr><br/>`; // End table row every odd event
     };
     message += `<br/></tbody></table>`; 
     message += `</td></tr></tbody></table>`;

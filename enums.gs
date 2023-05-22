@@ -1,6 +1,3 @@
-const spreadsheet = SpreadsheetApp.openById(config.spreadsheetId);
-const artistSheet = spreadsheet.getSheetByName(`Artists`);
-const eventSheet = spreadsheet.getSheetByName(`Events`);
 
 const SERVICE_NAME = `Music Spider`;
 const SUPPORT_ALIAS = GmailApp.getAliases()[0];
@@ -17,6 +14,11 @@ const HEADERNAMES = {
   image : `Image`,	
 	acts: `Acts`,
   address: `Address`,
+}
+
+const SHEETS = {
+  Artists : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`spreadsheetId`)).getSheetByName(`Artists`),
+  Events :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`spreadsheetId`)).getSheetByName(`Events`),
 }
 
 const RESPONSECODES = {

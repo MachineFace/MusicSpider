@@ -1,53 +1,5 @@
-/**
- * ----------------------------------------------------------------------------------------------------------------
- * Clear a range of values
- * @param {sheet} sheet 
- * @param {number} startRow header title
- */
-const clearData = (sheet, startRow = 2) =>  {
-  if(typeof sheet != `object`) return 1;
-  startRow = startRow >= 2 ? startRow : 2;
-  let numCols = sheet.getLastColumn();
-  let numRows = numRows >= 1 ? sheet.getLastRow() - startRow + 1 : 1; // The number of row to clear
-  let range = sheet.getRange(startRow, 1, numRows, numCols);
-  range.clear();
-}
 
-/**
- * ----------------------------------------------------------------------------------------------------------------
- * Removes any row of data if the Date value is before today
- * @param {sheet} sheet
- * @param {string} dateHeaderName default is "Date"
- */
-const removeExpiredEntries = (sheet, dateHeaderName = "Date") => {
-  if(typeof sheet != `object`) return 1;
-  try {
-    let today = new Date();
-    let data = sheet.getDataRange().getValues();
-    let lastRow = sheet.getLastRow() - 1; //subtract header
-    if (lastRow < 1) return 1;
-    let col = data[0].indexOf(dateHeaderName);
-    let range = sheet.getRange(2, col + 1, lastRow, 1).getValues();
-    if (col == -1) {
-      console.error(`Matching data by header failed...`);
-      return false;
-    }
-    let rowsToDel = [];
-    for (let i = 0; i < range.length; i++){
-      let date = new Date(range[i][0]);
-      if (date <= today) {
-        rowsToDel.push(i + 2);
-      }
-    }
-    for (let i = 0; i < rowsToDel.length; i++){
-      console.info(`Removing expired event: ${data[i + 1][0]}, Date: ${range[rowsToDel[i] - 2]}`);
-      sheet.deleteRow(rowsToDel[i]);
-    }
-  } catch (err) {
-    console.error(`${err} : removeExpiredEntry failed - Sheet: ${sheet} Col Name specified: ${dateHeaderName}`);
-    return false;
-  }
-}
+
 
 /**
  * ----------------------------------------------------------------------------------------------------------------
@@ -103,25 +55,6 @@ const GetRowData = (sheet, row) => {
 }
 
 
-const searchColForValue = (sheet, columnName, val) => {
-  if(typeof sheet != `object`) return false;
-  try {
-    let data = sheet.getDataRange().getValues();
-    let lastRow = sheet.getLastRow();
-    let col = data[0].indexOf(columnName);
-    let range = sheet.getRange(2,col+1,lastRow,1).getValues();
-    // console.info(range);
-    if (col == -1) {
-      console.error(`Matching data by header failed...`);
-      return false;
-    }
-    return range.some( row => row[0] === val);
-  } catch (err) {
-    console.error(`${err} : searchForValue failed - Sheet: ${sheet} Col Name specified: ${columnName} value: ${val}`);
-    return false;
-  }
-}
-
 /**
  * ----------------------------------------------------------------------------------------------------------------
  * Set the value of a cell by column name and row number
@@ -141,7 +74,6 @@ const SetByHeader = (sheet, columnName, row, val) => {
     sheet.getRange(row, col).setValue(val);
     return 0;
   } catch (err) {
-    console.info(`${err} : SetByHeader failed - Sheet: ${sheet} Row: ${row} Col: ${col} Value: ${val}`);
     console.error(`${err} : SetByHeader failed - Sheet: ${sheet} Row: ${row} Col: ${col} Value: ${val}`);
     return 1;
   }
@@ -172,62 +104,86 @@ const SetRowData = (sheet,data) => {
 }
 
 
-const writeArrayToColumn = (array, sheet, col) => {
-  let outerArray = [];
-
-  for (let i = 0; i < array.length; i++) {
-    outerArray.push([...array]);
-  };
-  let range = sheet.getRange(sheet.getLastRow() + 1, col, array.length, 1);
-  range.setValues(outerArray);
-};
-
-const deleteEmptyRows = (sheet) => {
-  sheet = sheet ? sheet : SpreadsheetApp.getActiveSheet();
-  // Gets active selection and dimensions.
-  let activeRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
-  let rowCount = activeRange.getHeight();
-  let firstActiveRow = activeRange.getRow();
-  let columnCount = sheet.getMaxColumns();
-
-  // Tests that the selection is a valid range.
-  if (rowCount <= 0 || rowCount >= 10000) {
-    console.info('Select a valid range.');
-    return;
-  }
-
-  // Utilizes an array of values for efficient processing to determine blank rows.
-  let activeRangeValues = activeRange.getValues();
-
-  // Checks if array is all empty values.
-  const valueFilter = (value) => value !== '';
-  const isRowEmpty = (row) => row.filter(valueFilter).length === 0;
-
-  // Maps the range values as an object with value (to test) and corresponding row index (with offset from selection).
-  let rowsToDelete = activeRangeValues.map((row, index) => ({ row, offset: index + activeRange.getRowIndex() }))
-    .filter(item => isRowEmpty(item.row)) // Test to filter out non-empty rows.
-    .map(item => item.offset); //Remap to include just the row indexes that will be removed.
-
-  // Combines a sorted, ascending list of indexes into a set of ranges capturing consecutive values as start/end ranges.
-  // Combines sequential empty rows for faster processing.
-  let rangesToDelete = rowsToDelete.reduce((ranges, index) => {
-    let currentRange = ranges[ranges.length - 1];
-    if (currentRange && index === currentRange[1] + 1) {
-      currentRange[1] = index;
-      return ranges;
+const searchColForValue = (sheet, columnName, val) => {
+  if(typeof sheet != `object`) return false;
+  try {
+    let data = sheet.getDataRange().getValues();
+    let lastRow = sheet.getLastRow();
+    let col = data[0].indexOf(columnName);
+    let range = sheet.getRange(2,col+1,lastRow,1).getValues();
+    // console.info(range);
+    if (col == -1) {
+      console.error(`Matching data by header failed...`);
+      return false;
     }
-    ranges.push([index, index]);
-    return ranges;
-  }, []);
-
-  // Sends a list of row indexes to be deleted to the console.
-  console.log(rangesToDelete);
-
-  // Deletes the rows using REVERSE order to ensure proper indexing is used.
-  rangesToDelete.reverse().forEach(([start, end]) => sheet.deleteRows(start, end - start + 1));
-  SpreadsheetApp.flush();
+    return range.some( row => row[0] === val);
+  } catch (err) {
+    console.error(`${err} : searchForValue failed - Sheet: ${sheet} Col Name specified: ${columnName} value: ${val}`);
+    return false;
+  }
 }
 
+
+
+const writeArrayToColumn = (array, sheet, col) => {
+  for (let i = 0; i < array.length; i++) {
+    sheet.getRange(sheet.getLastRow() + 1 + i, col, 1, 1).setValues(array[i]);
+  };
+};
+
+
+// Checks if array is all empty values.
+const isRowEmpty = (row) => row.filter((value) => value !== '').length === 0;
+
+
+const deleteEmptyRows = (sheet) => {
+  try {
+    sheet = sheet ? sheet : SpreadsheetApp.getActiveSheet();
+    let activeRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
+    let rowCount = activeRange.getHeight();
+
+    // Tests that the selection is a valid range.
+    if (rowCount <= 0 || rowCount >= 10000) throw new Error(`Range either <= 0 or >= 10,000. Please fix it.`);
+
+    // Utilizes an array of values for efficient processing to determine blank rows.
+    let activeRangeValues = activeRange.getValues();
+
+    // Maps the range values as an object with value (to test) and corresponding row index (with offset from selection).
+    let rowsToDelete = activeRangeValues.map((row, index) => ({ row, offset: index + activeRange.getRowIndex() }))
+      .filter(item => isRowEmpty(item.row)) // Test to filter out non-empty rows.
+      .map(item => item.offset); //Remap to include just the row indexes that will be removed.
+
+    // Combines a sorted, ascending list of indexes into a set of ranges capturing consecutive values as start/end ranges.
+    let rangesToDelete = rowsToDelete.reduce((ranges, index) => {
+      let currentRange = ranges[ranges.length - 1];
+      if (currentRange && index === currentRange[1] + 1) {
+        currentRange[1] = index;
+        return ranges;
+      }
+      ranges.push([index, index]);
+      return ranges;
+    }, []);
+
+    // Sends a list of row indexes to be deleted to the console.
+    console.log(rangesToDelete);
+
+    // Deletes the rows using REVERSE order to ensure proper indexing is used.
+    rangesToDelete.reverse().forEach(([start, end]) => sheet.deleteRows(start, end - start + 1));
+    SpreadsheetApp.flush();
+  } catch(err) {
+    console.error(`"deleteEmptyRows()" failed for some reason: ${err}`);
+  }
+}
+
+/**
+ * 
+ * @NOTIMPLEMENTED
+const addArrayToSheet = (sheet, column, values) => {
+  const range = [column, `1:`, column, values.length]
+    .join(``);
+  sheet.getRange(range).setValues(values.map((v) => [ v ]));
+}
+*/
 
 /**
  * Removes blank columns in a selected range.

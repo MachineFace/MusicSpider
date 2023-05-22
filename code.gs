@@ -4,8 +4,6 @@
  * Music Spider
  * 
  * Developed by https://github.com/cparsell
- * 
- * 
  * I borrowed many core Spotify API functions from https://github.com/Nitemice/spotify-backup-gas
  * 
  * To setup:
@@ -35,6 +33,7 @@
 const BarMenu = () => {
   SpreadsheetApp.getUi()
     .createMenu(`Music Spider`)
+    .addItem(`Get Redirect URI for Spotify`, `popupRedirectURI`)
     .addItem(`Refresh Artists`, `refreshArtists`)
     .addItem(`Refresh Events`, `refreshEvents`)
     .addItem(`Send Email Newsletter`, `sendEmail`)
@@ -43,11 +42,40 @@ const BarMenu = () => {
     .addToUi();
 };
 
+const popupRedirectURI = () => {
+  const redirectURI = GetRedirectUri();
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(
+    `Music Spider`,
+    `COPY THIS: ----->  ${redirectURI}   <----- COPY THIS.`,
+    ui.ButtonSet.OK
+  );
+}
 
-const addArrayToSheet = (sheet, column, values) => {
-  const range = [column, `1:`, column, values.length]
-    .join(``);
-  sheet.getRange(range).setValues(values.map((v) => [ v ]));
+/**
+ * Main Call to Refresh
+ */
+const refreshArtists = async () => {
+  const ui = await SpreadsheetApp.getUi();
+  const count = await new SpotifyService().RefreshArtists();
+  ui.alert(
+    SERVICE_NAME,
+    `Retrieving New Artists\nTotal : ${count}`,
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Main Call to Refresh
+ */
+const refreshEvents = async () => {
+  const ui = await SpreadsheetApp.getUi();
+  const count = await new TicketmasterFactory().RefreshEvents()
+  ui.alert(
+    SERVICE_NAME,
+    `Retrieving New Events from Artists List\nTotal : ${count}`,
+    ui.ButtonSet.OK
+  );
 }
 
 const main = () => {
@@ -58,9 +86,7 @@ const main = () => {
 
 
 
-const xmlElement = (type, text) => XmlService
-  .createElement(type)
-  .setText(text);
+
 
 
 

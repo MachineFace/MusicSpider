@@ -1,34 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en"> 
   <head>
     <title>Spotify - First Time Authentication</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+    <meta charset="UTF-8"/>
+    <meta name="description" content="Spotify - First Time Authentication">
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spotify - First Time Authentication" />
+    <meta property="og:description" content="Spotify - First Time Authentication" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Quicksand:400,300,700" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
   </head>
   <body>
-    <h1>Spotify - First Time Authentication</h1>
-    <ol>
-      <li>
-        <p>Navigate to your Spotify Backup Script app via the <a href="https://developer.spotify.com/dashboard/applications">Spotify App Dashboard.</a></p>
-      </li>
-      <li>
-        <p>
-          Add the following URI to the 'Redirect URIs' field, found under "Edit Settings":<br />
-          <code><strong><?= ScriptApp.getService().getUrl() ?> </strong> </code>
-        </p>
-        <p>
-          For more information, see
-          <a href="https://developer.spotify.com/documentation/general/guides/app-settings/">Spotify's Development Guide.</a>
-        </p>
-      </li>
-      <li>
-        <p>
-          Go to the following URL, log into the desired user's Spotify account, and approve access:<br />
-          <a href="<?= generateAuthUrl() ?>" target="_blank"><?= generateAuthUrl() ?></a>
-        </p>
-      </li>
-      <li>
-        You should be redirected back to a success page on Google App Script.
-      </li>
-    </ol>
+    <section>
+      <h1>Spotify - First Time Authentication</h1>
+      <ol>
+        <li>
+          <p>Navigate to your Spotify Backup Script app via the <a href="https://developer.spotify.com/dashboard/applications">Spotify App Dashboard.</a></p>
+        </li>
+        <li>
+          <p>
+            Add the following URI to the 'Redirect URIs' field, found under "Edit Settings":<br />
+            <code><strong><?= ScriptApp.getService().getUrl() ?> </strong> </code>
+          </p>
+          <p>
+            For more information, see
+            <a href="https://developer.spotify.com/documentation/general/guides/app-settings/">Spotify's Development Guide.</a>
+          </p>
+        </li>
+        <li>
+          <p>
+            Go to the following URL, log into the desired user's Spotify account, and approve access:<br />
+            <a href="<?= generateAuthUrl() ?>" target="_blank"><?= generateAuthUrl() ?></a>
+          </p>
+        </li>
+        <li>
+          You should be redirected back to a success page on Google App Script.
+        </li>
+      </ol>
+    </section>
   </body>
 
 </html>
