@@ -1,6 +1,8 @@
-const sendEmail = () => {
-  const ticketmaster = new TicketmasterFactory();
-  let events = ticketmaster.BuildEventsArray();
+const sendEmail = async () => {
+  await new SpotifyService().RefreshArtists();
+  await new TicketmasterFactory().RefreshEvents();
+
+  let events = new TicketmasterFactory().BuildEventsArray();
   let msgSubjRaw = [];
   let msgSubj = `${SERVICE_NAME} - `;
   if (Object.keys(events).length === 0) {
@@ -158,7 +160,7 @@ class CreateMessage
         actsArray.forEach((act, index) => {
           if (index == 0) message += `with `;
           if (!eventTitle.toUpperCase().match(act.toUpperCase()) && index < 6) {
-            message += (index == actsB.length-1) ?  `${act}` : `${act}, `;
+            message += (index == acts.length - 1) ?  `${act}` : `${act}, `;
           }
           if (index == 6) message += `...` // truncate list if longer than 5
         })

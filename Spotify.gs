@@ -20,13 +20,13 @@ class SpotifyService {
     this.topArtistsUrl = `${this.profileUrl}/top/artists`;
 
     // Set up the service
-    this.service = this.GetService();
+    this.service = this._CreateService();
   }
 
   /**
    * Configure the service
    */
-  GetService() {
+  _CreateService() {
     const service = OAuth2.createService(`Spotify`)
       .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
       .setTokenUrl(`https://accounts.spotify.com/api/token`)
@@ -59,20 +59,18 @@ class SpotifyService {
   /**
    * Check if Service is Active
    */
-  isServiceActive() {
+  _isServiceActive() {
     if(!this.service.hasAccess()) return false;
     return true;
   }
 
   /**
    * Get Data
-   * @param {string} access token
    * @param {string} url
-   * @param {boolean} get all pages
    * @returns {object} data
    */
-  async GetData(url) {
-    if(!this.isServiceActive()) {
+  async _GetData(url) {
+    if(!this._isServiceActive()) {
       const authURL = service.getAuthorizationUrl();
       console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
       return 1;
@@ -85,14 +83,24 @@ class SpotifyService {
       },
       "muteHttpExceptions" : false,
     };
-
-    const response = await UrlFetchApp.fetch(url, options);
-    const responseCode = response.getResponseCode();
-    if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
-
-    const data = JSON.parse(response.getContentText());
-    // console.info(data);
-    return data;
+    try {
+      let data = [];
+      let responseCode;
+      let offsetString = ``;
+      for(let i = 0; i < 2000; i += 100) {
+        do {
+          offsetString = i > 0 && i < 1000 ? "&offset=" + i : "&offset=1000";
+          const response = await UrlFetchApp.fetch(url + offsetString, options);
+          responseCode = response.getResponseCode();
+          data.push(JSON.parse(response.getContentText()));
+        } while (responseCode == 200 && responseCode == 201);
+        if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      }
+      const parsed = data.flat();
+      return parsed;
+    } catch(err) {
+      console.error(`"GetData()" failed: ${err}`);
+    }
   }
 
   /**
@@ -102,7 +110,7 @@ class SpotifyService {
   async RefreshArtists() {
     this._ClearData(SHEETS.Artists);    // Clear previous artist list
 
-    let topArtists, playlistArtists, followedArtists;
+    let topArtists, playlistArtists, followedArtists, savedArtists;
     if (PropertiesService.getScriptProperties().getProperty(`getTopArtists`)) {
       topArtists = await this.GetTopArtists();
       console.warn(`Number of Artists: ${topArtists.length}`);
@@ -115,10 +123,13 @@ class SpotifyService {
       followedArtists = await this.GetFollowedArtists();
       console.warn(`Number of Followed Artists: ${followedArtists.length}`);
     }
-    
-    let artists = [...new Set([...topArtists, ...playlistArtists, ...followedArtists])].sort();   // Combine arrays and filter unique
+    savedArtists = await this.GetSavedTracksArtists();
+    console.warn(`Number of Saved Artists: ${savedArtists.length}`);
+
+    let artists = [...new Set([...topArtists, ...playlistArtists, ...followedArtists, ...savedArtists])].sort();   // Combine arrays and filter unique
     if (artists.length < 1) console.info(`Unable to retrieve a list of artists from Spotify`);
     
+    artists = this._FilterArtists(artists);
     console.warn(`Total Artists: ${artists.length}`);
     this._WriteArtistsToSheet(artists);    // Write new artists to sheet
     SHEETS.Artists.getRange(2, 1, SHEETS.Artists.getLastRow(), 1)
@@ -143,24 +154,22 @@ class SpotifyService {
    * interested in seeing live ;)
    */
   async GetSavedTracksArtists() {
-    
-    // Retrieve data
-    const params = `?limit=50`;
-    console.warn(`Getting artists from saved tracks`)
-    let data = await this.GetData(savedTracksUrl + params, true);
-
-    // Fold array of responses into single structure
-    if (!data) console.error(`Unable to get artists from saved tracks...`);
-    data = collateArrays(`items`, data);
-    let artists = [];
-    data.forEach(track => {
-      track.track.artists.forEach(artist => artists.push(artist.name));
-    });
-
-    let unique = [...new Set(artists)];
-    console.warn(`Artists: ${unique}`);
-    return unique;
-
+    console.info(`Getting Saved Tracks Artists....`);
+    const params = "?limit=50";
+    try {
+      const data = await this._GetData(this.savedTracksUrl + params);
+      let artists = [];
+      data.forEach(entry => {
+        entry.items.forEach(item => {
+          item.track.artists.forEach(artist => artists.push(artist.name));
+        });
+      })
+      const filteredArtists = [...new Set(artists)].sort();
+      console.info(`Saved Tracks Artists Count: ${filteredArtists.length}`);
+      return filteredArtists;
+    } catch(err) {
+      console.error(`"GetSavedTracksArtists()" failed: ${err}`);
+    }
   }
 
 
@@ -168,22 +177,18 @@ class SpotifyService {
    * Get Followed Artists
    */
   async GetFollowedArtists() {
-
-    // Retrieve data
+    console.info(`Getting Followed Artists...`);
     const params = "?type=artist&limit=50";
-    let data = await this.GetData(this.followUrl + params);
+    const data = await this._GetData(this.followUrl + params);
 
-    // Fold array of responses into single structure
     let artists = [];
-    data?.artists?.items.forEach(artist => artists.push(artist.name));
-    let sorted = artists.sort();
-    sorted.forEach( (artist, index) => {
-      if (artistsToIgnore.includes(artist)) {
-        sorted.splice(index, 1);
-      }
-    });
-    console.info(sorted);
-    return sorted;
+    data.forEach(entry => {
+      const items = entry.artists.items;
+      items.forEach(item => artists.push(item.name));
+    })
+    artists = [...new Set(artists)].sort();
+    console.info(`Followed Artists Count: ${artists.length}`);
+    return artists;
   }
 
 
@@ -192,20 +197,40 @@ class SpotifyService {
    * Playlist ID is supplied in config.gs
    */
   async GetPlaylistArtists() {
+    if(!this._isServiceActive()) {
+      const authURL = service.getAuthorizationUrl();
+      console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
+      return 1;
+    }
     console.info(`Getting artists from playlists....`);
+    const playlistId = PropertiesService.getScriptProperties().getProperty(`playlistId`);
+    const url = this.playlistUrl + "/" + playlistId + "/tracks";
+    console.info(url);
+    const options = {
+      "method": "GET",
+      "headers" : {
+        "Authorization" : "Bearer " + this.service.getAccessToken(),
+        "Content-Type" : "application/json",
+      },
+      "muteHttpExceptions" : false,
+    };
     try {
-      const playlistId = PropertiesService.getScriptProperties().getProperty(`playlistId`);
-      const url = this.playlistUrl + "/" + playlistId + "/tracks";
-      const data = await this.GetData(url);
+      let responseCode, data;
+      do {
+        const response = await UrlFetchApp.fetch(url, options);
+        responseCode = response.getResponseCode();
+        data = JSON.parse(response.getContentText());
+      } while (responseCode == 200 && responseCode == 201);
+      if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
       if (!data) throw new Error(`No data received from your watch playlist...`);
 
       let artists = [];
       data?.items?.forEach(entry => {
         const artist = entry?.track?.album?.artists[0]?.name;
-        if (!artistsToIgnore.includes(artist)) artists.push(artist);
+        artists.push(artist);
       });
       const filteredArtists = [...new Set(artists)];
-      console.info(filteredArtists);
+      console.info(`Playlist Artists Count: ${filteredArtists.length}`);
       return filteredArtists;
     } catch(err) {
       console.error(`"GetPlaylistArtists()" failed: ${err}`);
@@ -219,10 +244,10 @@ class SpotifyService {
    */
   async GetTopArtists() {  
 
-    let long_term1 = await this.GetTopData(`long_term`);    // LONG TERM top artists
-    let long_term2 = await this.GetTopData(`long_term`);   // LONG TERM top artists OFFSET +48
-    let med_term = await this.GetTopData(`medium_term`);    // MEDIUM TERM top artists
-    let short_term = await this.GetTopData(`short_term`);   // SHORT TERM top artists
+    let long_term1 = await this._GetTopData(`long_term`);    // LONG TERM top artists
+    let long_term2 = await this._GetTopData(`long_term`);   // LONG TERM top artists OFFSET +48
+    let med_term = await this._GetTopData(`medium_term`);    // MEDIUM TERM top artists
+    let short_term = await this._GetTopData(`short_term`);   // SHORT TERM top artists
 
     let artists = [...long_term1, ...long_term2, ...med_term, ...short_term];
     
@@ -242,21 +267,61 @@ class SpotifyService {
    * @param {integer} offset 
    * @returns {[artists]} list of artists
    */
-  async GetTopData(term) {
+  async _GetTopData(term) {
+    if(!this._isServiceActive()) {
+      const authURL = service.getAuthorizationUrl();
+      console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
+      return 1;
+    }
+    const options = {
+      "method": "GET",
+      "headers" : {
+        "Authorization" : "Bearer " + this.service.getAccessToken(),
+        "Content-Type" : "application/json",
+      },
+      "muteHttpExceptions" : false,
+    };
+    console.info(`Getting top artists (${term})...`);
     const params = `?time_range=${term}&limit=50`;
 
-    console.info(`Getting top artists (${term})...`)
-    const response = await this.GetData(this.topArtistsUrl + params, true);
-    if (!response) console.warn(`No data received (${term})`);
+    try {
+      let data = [];
+      let responseCode;
+      do {
+        const response = await UrlFetchApp.fetch(this.topArtistsUrl + params, options);
+        responseCode = response.getResponseCode();
+        data.push(JSON.parse(response.getContentText()));
+      } while (responseCode == 200 && responseCode == 201);
+      if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      if (!data) throw new Error(`No data received (${term})`);
+      
+      let artists = [];
+      data.forEach(entry => {
+        entry.items.forEach(item => artists.push(item.name));
+      });
+      artists = [...new Set(artists)].sort();
+      console.info(`Top Data Artists Count ${term}: ${artists.length}`);
+      return artists;
+    } catch(err) {
+      console.error(`"GetData()" failed: ${err}`);
+    }
 
-    let artists = [];
-    response?.items.forEach(artist => { 
-      if (!artistsToIgnore.includes(artist.name)) {
-        artists.push(artist.name);
-      }
-    });
+    // let artists = [];
+    // response?.items.forEach(artist => { 
+    //   if (!artistsToIgnore.includes(artist.name)) {
+    //     artists.push(artist.name);
+    //   }
+    // });
     // console.info(artists);
-    return artists;
+    // return artists;
+  }
+
+  _FilterArtists(artists) {
+    let filtered = [];
+    artists.forEach(artist => {
+      if (!artistsToIgnore.includes(artist)) filtered.push(artist);
+    });
+    return [...new Set(artists)].sort();
   }
 
   _ClearData () {
@@ -267,6 +332,8 @@ class SpotifyService {
   }
 
 }
+
+const _testSpotify = () => new SpotifyService().RefreshArtists();
 
 
 /**

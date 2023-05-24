@@ -14,10 +14,8 @@ const GetByHeader = (sheet, columnName, row) => {
     let data = sheet.getDataRange().getValues();
     let col = data[0].indexOf(columnName);
     if (col != -1) return data[row - 1][col];
-    else {
-      console.error(`Getting data by header fucking failed...`);
-      return 1;
-    }
+    console.error(`Getting data by header fucking failed...`);
+    return 0;
   } catch (err) {
     console.error(`${err} : GetByHeader failed - Sheet: ${sheet} Col Name specified: ${columnName} Row: ${row}`);
     return 1;
@@ -36,7 +34,7 @@ const GetRowData = (sheet, row) => {
   try {
     let headers = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
     headers.forEach( (name, index) => {
-      let linkedKey = Object.keys(HEADERNAMES).find(key => HEADERNAMES[key] === name);
+      let linkedKey = Object.keys([...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES]).find(key => [...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES][key] === name);
       if(!linkedKey) headers[index] = name;
       else headers[index] = linkedKey;
     })
@@ -92,7 +90,7 @@ const SetRowData = (sheet,data) => {
     let sheetHeaderNames = Object.values(GetRowData(sheet, 1));
     let values = [];
     Object.entries(data).forEach(pair => {
-      let headername = HEADERNAMES[pair[0]];
+      let headername = [...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES][pair[0]];
       let index = sheetHeaderNames.indexOf(headername);
       values[index] = pair[1];
     });

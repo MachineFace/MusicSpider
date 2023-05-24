@@ -54,7 +54,7 @@ class TicketmasterFactory {
       console.info(`Headernames: ${sheetHeaderNames}`);
       let values = [];
       Object.entries(event).forEach(kvp => {
-        const headername = HEADERNAMES[kvp[0]];
+        const headername = EVENTSHEETHEADERNAMES[kvp[0]];
         const index = sheetHeaderNames.indexOf(headername);
         values[index] = kvp[1];
       });
@@ -196,7 +196,7 @@ class TicketmasterFactory {
       if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
       let content = await JSON.parse(response.getContentText())?._embedded?.events;
       // console.info(new Common().PrettifyJson(content));  
-      Sleep(100);
+      Sleep(1000);
       return content;
     } catch (err) {
       console.error(`"SearchTicketmaster()" failed: ${err}`);

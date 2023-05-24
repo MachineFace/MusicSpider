@@ -5,15 +5,19 @@ const SUPPORT_ALIAS = GmailApp.getAliases()[0];
 const monthNames = [`Jan`, `Feb`, `Mar`, `Apr`, `May`, `June`, `July`, `Aug`, `Sept`, `Oct`, `Nov`, `Dec`, ];
 const dayNames = [`Sun`, `Mon`, `Tues`, `Wed`, `Thur`, `Fri`, `Sat`];
 
-const HEADERNAMES = {
-  eventTitle : `Event Title`,	
+const ARTISTSHEETHEADERNAMES = {
+  artists : `Artists`,	
+}
+
+const EVENTSHEETHEADERNAMES = {
+  title : `Event Title`,	
   venue : `Venue`,	
   city : `City`,	
   date : `Date`,	
   url : `URL`,	
   image : `Image`,	
-	acts: `Acts`,
-  address: `Address`,
+  acts : `Acts`,
+  address : `Address`,																		
 }
 
 const SHEETS = {
