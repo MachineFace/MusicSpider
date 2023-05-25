@@ -22,19 +22,19 @@ const CreateCalendarEvents = (events) => {
 const CreateCalendarEvent = (event) => {
   try {
     console.info(`EVENT -----> ${event}`);
-    // const date = new Date(event[key].date);
-    // const endTime = new Date(AddHours(event[key].date, 3));
-    // CalendarApp.getCalendarById(PropertiesService.getScriptProperties().getProperty(`calendarId`))
-    //   .createEvent(
-    //     `${event[key].eventTitle} at ${event[key].venue}`, 
-    //     date, 
-    //     endTime, {
-    //       location: event[key].address,
-    //       description: `Tickets: ${event[key].url}`,
-    //     },
-    //   );
-    // console.warn(`Created calendar event for ${event[key].eventTitle}`);
-    // return 0;
+    const date = new Date(event[key].date);
+    const endTime = new Date(AddHours(event[key].date, 3));
+    CalendarApp.getCalendarById(PropertiesService.getScriptProperties().getProperty(`calendarId`))
+      .createEvent(
+        `${event[key].eventTitle} at ${event[key].venue}`, 
+        date, 
+        endTime, {
+          location: event[key].address,
+          description: `Tickets: ${event[key].url}`,
+        },
+      );
+    console.warn(`Created calendar event for ${event[key].eventTitle}`);
+    return 0;
   } catch(err) {
     console.error(`"CreateCalendarEvent()" failed: ${err}`);
     return 1;
@@ -51,3 +51,11 @@ const AddHours = (time, h) => {
   const date = new Date(time).getTime();
   return new Date(date + (h * 60 * 60 * 1000));
 }
+
+
+
+
+
+
+
+
