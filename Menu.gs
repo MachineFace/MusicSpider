@@ -36,7 +36,7 @@ const BarMenu = () => {
     .addItem(`Get Redirect URI for Spotify`, `popupRedirectURI`)
     .addItem(`Refresh Artists`, `popupRefreshArtists`)
     .addItem(`Refresh Events`, `popupRefreshEvents`)
-    .addItem(`Send Email Newsletter`, `sendEmail`)
+    .addItem(`Send Email Newsletter`, `popupSendEmail`)
     .addSeparator()
     .addItem(`Delete Blank Rows`, `deleteEmptyRows`)
     .addToUi();
@@ -46,7 +46,7 @@ const popupRedirectURI = () => {
   const redirectURI = GetRedirectUri();
   const ui = SpreadsheetApp.getUi();
   ui.alert(
-    `Music Spider`,
+    SERVICE_NAME,
     `COPY THIS: ----->  ${redirectURI}   <----- COPY THIS.`,
     ui.ButtonSet.OK
   );
@@ -77,6 +77,17 @@ const popupRefreshEvents = async () => {
     ui.ButtonSet.OK
   );
 }
+
+const popupSendEmail = () => {
+  sendEmail();
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(
+    SERVICE_NAME,
+    `Sending Email to ${PropertiesService.getScriptProperties().getProperty(`email`)}...`,
+    ui.ButtonSet.OK
+  );
+}
+
 
 const main = () => {
   // await refreshArtists();
