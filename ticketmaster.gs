@@ -1,3 +1,6 @@
+/**
+ * TicketmasterSearch
+ */
 class TicketmasterFactory {
   constructor() {
     this.ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json`;
@@ -14,15 +17,15 @@ class TicketmasterFactory {
 
       let count = 0;
       artists.forEach(async (artist) => {      
-        await this.TicketSearch(artist)
+        await this.ParseResults(artist)
           .then(data => {
-            if(!data) throw new Error(`TicketSearch returned no results.`);
+            if(!data) throw new Error(`ParseResults returned no results.`);
             for (const [index, [key]] of Object.entries(Object.entries(data))) {
               let exists = searchColForValue(SHEETS.Events, `URL`, data[key].url);
               if (!exists) {
                 const event = {
-                  eventTitle: data[key].eventTitle,
-                  date: data[key].date,
+                  title: data[key].title,
+                  date: new Date(data[key].date),
                   city: data[key].city,
                   venue: data[key].venue, 
                   url: data[key].url, 
@@ -50,14 +53,15 @@ class TicketmasterFactory {
   WriteEventToSheet(event) {
     console.info(`Writing Event to Sheet..`);
     try {
-      const sheetHeaderNames = Object.values(GetRowData(SHEETS.Events, 1));
-      console.info(`Headernames: ${sheetHeaderNames}`);
+      const sheetHeaderNames = SHEETS.Events.getRange(1, 1, 1, SHEETS.Events.getMaxColumns()).getValues()[0];
       let values = [];
       Object.entries(event).forEach(kvp => {
         const headername = EVENTSHEETHEADERNAMES[kvp[0]];
         const index = sheetHeaderNames.indexOf(headername);
+        // console.info(`HEADERNAME: ${headername}, idx: ${index}, KVP: ${kvp[0]}, VALUE: ${kvp[1]}`);
         values[index] = kvp[1];
       });
+      // console.info(`Values: ${values}`);
       SHEETS.Events.appendRow(values);
       return 0;
     } catch (err) {
@@ -77,8 +81,8 @@ class TicketmasterFactory {
       console.error(`No events found- unable to build array of Events`);
       return 1;
     }
-    for (let i = 1; i < lastRow; i++) {
-      let rowData = GetRowData(SHEETS.Events, i + 1);
+    for (let i = 2; i < lastRow; i++) {
+      let rowData = GetRowData(SHEETS.Events, i);
       let { date } = rowData;
       events[date] = rowData;
     }
@@ -95,15 +99,15 @@ class TicketmasterFactory {
 
   /**
    * Search Ticketmaster for a kwarg
+   * @private
    */
-  async TicketSearch(keyword) {
+  async ParseResults(keyword) {
     try {
-      if (!keyword) throw new Error(`"TicketSearch()" Keyword not provided.`);
+      if (!keyword) throw new Error(`"ParseResults()" Keyword not provided.`);
       let events = {};
 
-      const data = await this.SearchTicketmaster(keyword);
-      // if (data.page.totalElements == 0) console.info(`No results.`);
-      
+      const data = await this._SearchTicketmaster(keyword);
+      if (data == 0) return `No results.`;
       data?.forEach((item) => {
         // console.info(`DATA ---> ${new Common().PrettifyJson(item)}`);
         let image = this._GetImage(item);
@@ -131,7 +135,7 @@ class TicketmasterFactory {
           // console.info(`venue: ${venueventTitle}`);
           if (attractions.includes(keyword) || item.name.toUpperCase() == keyword.toUpperCase()) {
             events[date] = { 
-              eventTitle : item.name,
+              title : item.name,
               acts : attractions,
               venue : venue.name , 
               city : venue.city.name, 
@@ -146,13 +150,14 @@ class TicketmasterFactory {
       console.info(new Common().PrettifyJson(events));
       return await events;
     } catch (err) {
-      console.error(`"TicketSearch()" failed: ${err}`);
+      console.error(`"ParseResults()" failed: ${err}`);
       return 1;
     }
   }
 
   /**
    * Helper function to loop through image URLs in JSON response. Find the one with the largest filesize
+   * @private
    */
   _GetImage(item) {
     let image = [[0,0]];
@@ -172,40 +177,44 @@ class TicketmasterFactory {
 
   /**
    * Search Ticketmaster for a keyword
+   * @private
    * @param {string} kwargs
    * @return {object} response
    */
-  async SearchTicketmaster(keyword) {
-    try {
-      console.info(`Searching Ticketmaster for ${keyword}`);
-      let params = `?apikey=${PropertiesService.getScriptProperties().getProperty(`ticketmaserKey`)}`;
-      params += `&latlong=${PropertiesService.getScriptProperties().getProperty(`latlong`)}`;
-      params += `&radius=${PropertiesService.getScriptProperties().getProperty(`radius`)}`;
-      params += `&unit=${PropertiesService.getScriptProperties().getProperty(`unit`)}`;
-      params += `&keyword=${encodeURI(keyword)}`;
-      console.info(this.ticketmasterUrl + params)
-      let options = {
-        "method" : "GET",
-        "async" : true,
-        "contentType" : "application/json",
-        "muteHttpExceptions" : false,
-      };
+  async _SearchTicketmaster(keyword) {
+    console.info(`Searching Ticketmaster for ${keyword}`);
+    let params = `?apikey=${PropertiesService.getScriptProperties().getProperty(`ticketmaserKey`)}`;
+    params += `&latlong=${PropertiesService.getScriptProperties().getProperty(`latlong`)}`;
+    params += `&radius=${PropertiesService.getScriptProperties().getProperty(`radius`)}`;
+    params += `&unit=${PropertiesService.getScriptProperties().getProperty(`unit`)}`;
+    params += `&keyword=${encodeURI(keyword)}`;
 
-      let response = await UrlFetchApp.fetch(this.ticketmasterUrl + params, options);
-      let responseCode = await response.getResponseCode();
-      if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
-      let content = await JSON.parse(response.getContentText())?._embedded?.events;
-      // console.info(new Common().PrettifyJson(content));  
-      Sleep(1000);
-      return content;
+    const options = {
+      "method" : "GET",
+      "async" : true,
+      "contentType" : "application/json",
+      "muteHttpExceptions" : false,
+    };
+    try {
+      Sleep(500);       // Wait a sec
+      const response = await UrlFetchApp.fetch(this.ticketmasterUrl + params, options);
+      const responseCode = response.getResponseCode();
+      if (responseCode != 200) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      const content = JSON.parse(response.getContentText());
+      if(content.hasOwnProperty(`_embedded`)) {
+        // console.info(new Common().PrettifyJson(content._embedded.events));  
+        return content._embedded.events;
+      }
+      return 0;
     } catch (err) {
-      console.error(`"SearchTicketmaster()" failed: ${err}`);
+      console.error(`"_SearchTicketmaster()" failed: ${err}`);
       return 1;
     }
   }
 
   /**
    * Get List of Artists from Sheet
+   * @private
    */
   _GetArtistsListFromSheet() {
     try {
@@ -222,6 +231,7 @@ class TicketmasterFactory {
   /**
    * ----------------------------------------------------------------------------------------------------------------
    * Removes any row of data if the Date value is before today
+   * @private
    * @param {sheet} sheet
    * @param {string} dateHeaderName default is "Date"
    */
@@ -252,8 +262,41 @@ class TicketmasterFactory {
 
 }
 
+const refreshEvents = async () => await new TicketmasterFactory().RefreshEvents();
 
 
-const _testSearch = async () => console.info(new Common().PrettifyJson(await new TicketmasterFactory().SearchTicketmaster(`Clark`)));
+const _testSearch = () => {
+  const t = new TicketmasterFactory();
+  const artists = t._GetArtistsListFromSheet().slice(0, 50);
+  artists.forEach(async (artist) => {
+    console.info(new Common().PrettifyJson(await t.ParseResults(artist)));
+  });
+}
+
+
+const _testWrite = () => {
+  const event = {
+    "title": "Arctic Monkeys",
+    "acts": [
+      "Arctic Monkeys",
+      "Fontaines D.C."
+    ],
+    "venue": "Chase Center",
+    "city": "San Francisco",
+    "date": new Date(2023, 09, 27),
+    "url": "https://www.ticketmaster.com/arctic-monkeys-san-francisco-california-09-26-2023/event/1C005D3C7B3E1307",
+    "image": "https://s1.ticketm.net/dam/a/20c/39a92fd1-cff7-4815-9e38-47ad38dde20c_1817101_TABLET_LANDSCAPE_LARGE_16_9.jpg",
+    "address": "300 16th Street, San Francisco, California"
+  }
+  const t = new TicketmasterFactory();
+  t.WriteEventToSheet(event);
+}
+
+
+
+
+
+
+
 
 

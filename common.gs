@@ -129,9 +129,13 @@ class Common {
  * Sleep function to wait for execution
  * @param {number} milliseconds
  */
-const Sleep = async (ms) => new Promise(r => setTimeout(r, ms));
+const Sleep = (ms) => Utilities.sleep(ms);
 
-
+const _testSleep = () => {
+  console.time(`Test Sleep`);
+  Sleep(2 * 1000);
+  console.timeEnd(`Test Sleep`);
+}
 
 const _testC = () => {
   const c = new Common();

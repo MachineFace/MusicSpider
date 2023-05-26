@@ -34,8 +34,8 @@ const BarMenu = () => {
   SpreadsheetApp.getUi()
     .createMenu(`Music Spider`)
     .addItem(`Get Redirect URI for Spotify`, `popupRedirectURI`)
-    .addItem(`Refresh Artists`, `refreshArtists`)
-    .addItem(`Refresh Events`, `refreshEvents`)
+    .addItem(`Refresh Artists`, `popupRefreshArtists`)
+    .addItem(`Refresh Events`, `popupRefreshEvents`)
     .addItem(`Send Email Newsletter`, `sendEmail`)
     .addSeparator()
     .addItem(`Delete Blank Rows`, `deleteEmptyRows`)
@@ -55,7 +55,7 @@ const popupRedirectURI = () => {
 /**
  * Main Call to Refresh
  */
-const refreshArtists = async () => {
+const popupRefreshArtists = async () => {
   const ui = await SpreadsheetApp.getUi();
   const count = await new SpotifyService().RefreshArtists();
   ui.alert(
@@ -68,7 +68,7 @@ const refreshArtists = async () => {
 /**
  * Main Call to Refresh
  */
-const refreshEvents = async () => {
+const popupRefreshEvents = async () => {
   const ui = await SpreadsheetApp.getUi();
   const count = await new TicketmasterFactory().RefreshEvents()
   ui.alert(

@@ -1,7 +1,4 @@
 const sendEmail = async () => {
-  await new SpotifyService().RefreshArtists();
-  await new TicketmasterFactory().RefreshEvents();
-
   let events = new TicketmasterFactory().BuildEventsArray();
   let msgSubjRaw = [];
   let msgSubj = `${SERVICE_NAME} - `;
@@ -11,7 +8,7 @@ const sendEmail = async () => {
   }
   for (const [index, [key]] of Object.entries(Object.entries(events))) {
     if (events[key].acts == ""){
-      msgSubjRaw.push(events[key].eventTitle);
+      msgSubjRaw.push(events[key].title);
       continue;
     }
     let acts = events[key].acts.split(',');
@@ -57,7 +54,7 @@ class Emailer {
         name: SERVICE_NAME,
         noReply: true,
       });
-    
+      console.info(`Email sent to ${this.email}`);
     } catch (err) {
       console.error(`${err} : Couldn't send email. Something went wrong.`);
     }
@@ -82,8 +79,7 @@ class Emailer {
  * @param {string} designspecialist
  * @param {string} designspecialistemaillink
  */
-class CreateMessage
-{
+class CreateMessage {
   constructor({
     events : events
   }) {
@@ -130,36 +126,31 @@ class CreateMessage
     message += `<a href="https://github.com/MachineFace/MusicSpider">`
     message += `<img src="https://i.postimg.cc/HkVc4bCq/music-spider-logo-nobg.png" height="22%" width="22%"/></a><br>`;
     message += `<span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;">`;
-    message += `<strong>${SERVICE_NAME.toLowerCase()}</strong><br><br></span></div></td></tr></thead>`;
+    message += `<strong>fucking ${SERVICE_NAME.toLowerCase()}</strong><br><br></span></div></td></tr></thead>`;
     message += `<tbody>`
 
     // for (const key of Object.keys(this.events)) { 
     // iterate through list of events
     for (const [index, [key]] of Object.entries(Object.entries(this.events))) {
-      const { date, city, venue, url, image, eventTitle, acts } = this.events[key];
+      const { date, city, venue, url, image, title, acts } = this.events[key];
       let actsArray = [...new Set(acts.split(','))];
       actsArray = actsArray.map(x => x.toUpperCase());
 
-      let eDate = new Date(key);
-      let eventDay = eDate.getDay();
-      let eventDayNum = eDate.getDate();
-      let eventMonth = eDate.getMonth();
-      let eventYear = eDate.getFullYear();
-      let eventTime = Utilities.formatDate(eDate, "PST", "h a");
+      const eDate = new Date(key);
+      const eventDay = eDate.getDay(), eventDayNum = eDate.getDate(), eventMonth = eDate.getMonth(), eventYear = eDate.getFullYear();
+      const eventTime = Utilities.formatDate(eDate, "PST", "h a");
       // Start a new table row every even event
-      if (new Common().IsEven(index)) {
-        message += `<tr>`;
-      }
+      if (new Common().IsEven(index)) message += `<tr>`;
       message += `<td class="tg-0lax" style="height:300px;vertical-align:top;"><div style="text-align: left;margin-left: 10px;">`;
       message += `<div class="" style=""><a href='${url}'>`;
       message += `<img src='${image}' class="" style="width:90%;float:center;width:350px;height:200px;object-fit:cover;"/></div>`;
       message += `<span style="font-family: Averta,Helvetica Neue,Helvetica,Arial,sans-serif;">`;
-      message += `<a href='${url}' style="text-decoration:none;"><span style="color:#44494c;font-size:20px;"><strong>${eventTitle}</strong></span></a><br/>`;
+      message += `<a href='${url}' style="text-decoration:none;"><span style="color:#44494c;font-size:20px;"><strong>${title}</strong></span></a><br/>`;
       
-      if (actsArray.length > 1 || !eventTitle.toUpperCase().match(actsArray[0])) {
+      if (actsArray.length > 1 || !title.match(actsArray[0])) {
         actsArray.forEach((act, index) => {
           if (index == 0) message += `with `;
-          if (!eventTitle.toUpperCase().match(act.toUpperCase()) && index < 6) {
+          if (!title.match(act) && index < 6) {
             message += (index == acts.length - 1) ?  `${act}` : `${act}, `;
           }
           if (index == 6) message += `...` // truncate list if longer than 5

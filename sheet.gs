@@ -13,9 +13,8 @@ const GetByHeader = (sheet, columnName, row) => {
   try {
     let data = sheet.getDataRange().getValues();
     let col = data[0].indexOf(columnName);
-    if (col != -1) return data[row - 1][col];
-    console.error(`Getting data by header fucking failed...`);
-    return 0;
+    if (col == -1) throw new Error(`Getting data by header fucking failed...`);
+    return data[row - 1][col];
   } catch (err) {
     console.error(`${err} : GetByHeader failed - Sheet: ${sheet} Col Name specified: ${columnName} Row: ${row}`);
     return 1;
@@ -29,16 +28,17 @@ const GetByHeader = (sheet, columnName, row) => {
  * @param {number} row
  */
 const GetRowData = (sheet, row) => {
-  if(typeof sheet != `object`) return 1;
+  if(typeof sheet != `object`) throw new Error(`Sheet is not a sheet.`);
   let dict = {};
   try {
     let headers = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
     headers.forEach( (name, index) => {
-      let linkedKey = Object.keys([...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES]).find(key => [...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES][key] === name);
+      const headdict = { ...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES };
+      const linkedKey = Object.keys(headdict).find(key => headdict[key] === name);
       if(!linkedKey) headers[index] = name;
       else headers[index] = linkedKey;
     })
-    let data = sheet.getRange(row, 1, 1, sheet.getMaxColumns()).getValues()[0];
+    const data = sheet.getRange(row, 1, 1, sheet.getMaxColumns()).getValues()[0];
     headers.forEach( (header, index) => {
       dict[header] = data[index];
     });
@@ -52,6 +52,10 @@ const GetRowData = (sheet, row) => {
   }
 }
 
+const _tRD = () => {
+  let r = GetRowData(SHEETS.Events, 5);
+  console.info(r)
+}
 
 /**
  * ----------------------------------------------------------------------------------------------------------------

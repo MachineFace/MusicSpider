@@ -6,25 +6,32 @@
  */
 class SpotifyService {
   constructor() {
+    /** @private */
     this.baseUrl = `https://api.spotify.com/v1`; 
-    // Profile URLs
+    /** @private */
     this.profileUrl = `${this.baseUrl}/me`;
-
-    // Library URLs
+    /** @private */
     this.playlistUrl = `${this.baseUrl}/playlists`;
+    /** @private */
     this.followUrl = `${this.profileUrl}/following`;
+    /** @private */
     this.savedTracksUrl = `${this.profileUrl}/tracks`;
+    /** @private */
     this.savedAlbumsUrl = `${this.profileUrl}/albums`;
+    /** @private */
     this.savedShowsUrl = `${this.profileUrl}/shows`;
+    /** @private */
     this.savedEpisodesUrl = `${this.profileUrl}/episodes`;
+    /** @private */
     this.topArtistsUrl = `${this.profileUrl}/top/artists`;
 
-    // Set up the service
+    /** @private */
     this.service = this._CreateService();
   }
 
   /**
    * Configure the service
+   * @private
    */
   _CreateService() {
     const service = OAuth2.createService(`Spotify`)
@@ -58,6 +65,7 @@ class SpotifyService {
 
   /**
    * Check if Service is Active
+   * @private
    */
   _isServiceActive() {
     if(!this.service.hasAccess()) return false;
@@ -66,6 +74,7 @@ class SpotifyService {
 
   /**
    * Get Data
+   * @private
    * @param {string} url
    * @returns {object} data
    */
@@ -126,7 +135,7 @@ class SpotifyService {
     savedArtists = await this.GetSavedTracksArtists();
     console.warn(`Number of Saved Artists: ${savedArtists.length}`);
 
-    let artists = [...new Set([...topArtists, ...playlistArtists, ...followedArtists, ...savedArtists])].sort();   // Combine arrays and filter unique
+    let artists = [...new Set([...topArtists, ...playlistArtists, ...followedArtists, ...savedArtists, ...ARTISTS])].sort();   // Combine arrays and filter unique
     if (artists.length < 1) console.info(`Unable to retrieve a list of artists from Spotify`);
     
     artists = this._FilterArtists(artists);
@@ -139,6 +148,7 @@ class SpotifyService {
 
   /**
    * Write Artists to Sheet
+   * @private
    * @param {array} artist names
    */
   _WriteArtistsToSheet(array) {
@@ -263,6 +273,7 @@ class SpotifyService {
   /**
    * Returns an array of Top Artists as gathered by Spotify
    * This searches `long term`, `medium term`, and `short term`
+   * @private
    * @param {string} term expects `long_term`, `medium_term`, or `short_term`
    * @param {integer} offset 
    * @returns {[artists]} list of artists
@@ -316,6 +327,12 @@ class SpotifyService {
     // return artists;
   }
 
+  /**
+   * Filter Artists
+   * @private
+   * @param {[string]} artists
+   * @returns {[string]} artists
+   */
   _FilterArtists(artists) {
     let filtered = [];
     artists.forEach(artist => {
@@ -324,6 +341,10 @@ class SpotifyService {
     return [...new Set(artists)].sort();
   }
 
+  /**
+   * Helper Function to clear sheet
+   * @private
+   */
   _ClearData () {
     console.warn(`CLEARING ARTIST SHEET!`);
     SHEETS.Artists
@@ -333,187 +354,12 @@ class SpotifyService {
 
 }
 
-const _testSpotify = () => new SpotifyService().RefreshArtists();
-
-
 /**
- * ---------------------------------------------------------------------------------------------------
- * Spotify Authenticate
- * @DEPRICATED
+ * MAIN CALL
  */
-class SpotifyAuthenticate {
-  constructor() {
-    this.baseAuthUrl = `https://accounts.spotify.com`;
-    this.authUrl = `https://accounts.spotify.com/authorize`;
-    this.refreshUrl = `https://accounts.spotify.com/api/token`;
-    this.scope = `user-library-read playlist-read-private playlist-read-collaborative user-top-read user-follow-read`;
-    this.clientID = PropertiesService.getScriptProperties().getProperty(`clientIdSpotify`);
-    this.clientSecret = PropertiesService.getScriptProperties().getProperty(`clientSecretSpotify`);
-  }
+const refreshArtists = () => new SpotifyService().RefreshArtists();
 
-  DoGet(e) {
-    if (e.parameter.error) {
-      let template = HtmlService.createTemplateFromFile("auth_error");
-      template.errorText = `Whoops: ${e.parameter.error}`;
-      return template.evaluate();
-    } else if (!e.parameter.code) {
-      return HtmlService
-        .createTemplateFromFile("auth_steps")
-        .evaluate();
-    }
 
-    // Retrieve refreshable auth with auth code then store it
-    let authInfo = this.GetFreshAuth(e.parameter.code);
-    this.StoreAuth(authInfo);
-
-    return HtmlService
-      .createTemplateFromFile("auth_success")
-      .evaluate();
-  }
-
-  /**
-   * Generate URL for requesting authorization using Authorization Code Flow
-   */
-  GenerateAuthUrl() {
-    try {
-      let url = ScriptApp.getService().getUrl();
-      let params = "?response_type=code&client_id=" + this.clientID + "&scope=" + this.scope + "&redirect_uri=" + url;
-      console.warn(`URI:   ---->   ${this.authUrl}${encodeURIComponent(params)}`);
-      return this.authUrl + encodeURIComponent(params);
-    } catch(err) {
-      console.error(`Generating Auth URL failed for some reason: ${err}`);
-      return 1;
-    }
-  }
-
-  /**
-   * Retrieve Refreshable AuthInfo
-   * @param {string} code (auth)
-   * @returns {obj} authInfo
-   */
-  async GetFreshAuth (code) {
-    try {
-      console.info(`Getting Fresh AuthInfo....`);
-      const now = Date.now() * 0.001;
-      const options = {
-        'method': 'post',
-        'Content-Type': 'application/json',
-        'payload': {
-          "grant_type": "authorization_code",
-          "code": code,
-          "redirect_uri": ScriptApp.getService().getUrl(),
-          "client_id": this.clientID,
-          "client_secret": this.clientSecret,
-        }
-      };
-
-      const response = await UrlFetchApp.fetch(refreshUrl, options);
-      const responseCode = response.getResponseCode();
-      if (responseCode != 200 || responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
-      const newTokens = JSON.parse(response.getContentText());
-
-      let authInfo = {
-        access_token : newTokens.access_token,
-        refresh_token : newTokens.refresh_token,
-        expires_in : now + newTokens.expires_in,
-      };
-      console.info(`Token: ${authInfo.access_token}`);
-      return await authInfo;
-    } catch(err) {
-      console.error(`Getting Fresh AuthInfo failed for some reason: ${err}`);
-      return 1;
-    }
-  }
-
-  /**
-   * Refresh authInfo with Refresh Token
-   * @param {string} refresh_token
-   * @returns {obj} authInfo
-   */
-  async RefreshAuth (refresh_token) {
-    try {
-      refresh_token = refresh_token ? refresh_token : PropertiesService.getUserProperties().getProperty(`access_token`);
-      console.info(`Refreshing AuthInfo....`);
-      const now = Date.now() * 0.001;
-      const options = {
-        "method": "POST",
-        "Content-Type": "application/json",
-        "payload": {
-          "grant_type": "refresh_token",
-          "refresh_token": refresh_token,
-          "client_id": this.clientID,
-          "client_secret": this.clientSecret,
-        },
-        "muteHttpExceptions": false,
-      };
-
-      const response = await UrlFetchApp.fetch(this.refreshUrl, options);
-      const responseCode = response.getResponseCode();
-      if (responseCode != 200 || responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode}  - ${RESPONSECODES[responseCode]}`);
-
-      const newTokens = JSON.parse(response.getContentText());
-      
-      let authInfo = {
-        access_token : newTokens.access_token,
-        refresh_token : newTokens.refresh_token,
-        expires_in : now + newTokens.expires_in,
-      };
-
-      if (newTokens.refresh_token) authInfo[refresh_token] = newTokens.refresh_token;
-      return await authInfo;
-    } catch(err) {
-      console.error(`Refreshing Auth failed for some reason: ${err}`);
-      return 1;
-    }
-  }
-
-  /**
-   * Retrieve refreshable auth info from user properties store
-   * @param {{string}} authInfo
-   * @returns {bool} success or failure 
-   */
-  StoreAuth(authInfo) {
-    try {
-      PropertiesService
-        .getUserProperties()
-        .setProperties(authInfo);
-      console.warn(`Setting User Properties: ${JSON.stringify(authInfo)}`);
-      return 0;
-    } catch(err) {
-      console.error(`Storing AuthInfo failed for some reason: ${err}`);
-      return 1;
-    }
-  }
-
-  /**
-   * Retrieve Refreshable authInfo from User Properties Store
-   * @returns {string} access_token 
-   */
-  async RetrieveAuth () {
-    try {
-      let userProps = PropertiesService.getUserProperties();
-      let authInfo = userProps.getProperties();
-      console.warn(authInfo);
-
-      // Check if auth info is there
-      if (!authInfo.hasOwnProperty(`access_token`) || !authInfo.hasOwnProperty(`refresh_token`)) {
-        // PropertiesService.getUserProperties().setProperty(`refresh_token`, ``);
-        throw new Error(`No access/refresh token. You need to deploy & run first-time authentication.`);     // First-time auth missing. Needs to be manually authorised.
-      }
-
-      // Check if the auth token has expired yet
-      if (Date.now() * 0.001 > authInfo.expires_in) {
-        console.warn("Access token expired. Refreshing authentication...");
-        authInfo = await this.RefreshAuth(authInfo.refresh_token);
-        userProps.setProperties(authInfo);
-      }
-      return await authInfo.access_token;
-    } catch(err) {
-      console.error(`Fetching Auth failed for some reason: ${err}`);
-      return 1;
-    }
-  }
-}
 
 
 
@@ -575,71 +421,3 @@ const authCallback = (request) => {
 
 
 
-/** 
-const GetSpotifyData = () => {
-  
-  // Set up the service
-  const service = GetSpotifyService();
-
-  // Need to authorize, open this URL from the Console Log to gain authorization from Spotify
-  if (!service.hasAccess()) {
-    console.log("App has no access yet.");
-    const authorizationUrl = service.getAuthorizationUrl();
-    console.log("Open the following URL and re-run the script: " + authorizationUrl);
-    return { "errorMessage": "Authorize and rerun: " + authorizationUrl };
-  }
-  try {
-
-    // Grab playlist data in sets of 100 (limited by API)
-    const limit = 100;
-    let offset = 0;
-    var offsetText = "";
-    var totalArray = [];
-    const base = "https://api.spotify.com";
-
-    // Examples of endpoints:
-    // const endpoint = "/v1/me";
-    // var endpoint = "/v1/me/tracks";
-    // var endpoint = "/v1/me/playlists?limit=50";    
-    const endpoint = "/v1/playlists/" + PropertiesService.getScriptProperties().getProperty(`playlistId`) + "/tracks?fields=items(added_at,track)&limit=" + limit;
-
-    // Pass token to API through header
-    const options = {
-      "method": "GET",
-      "headers": {
-        "Authorization": "Bearer " + GetSpotifyService().getAccessToken()
-      },
-      "muteHttpExceptions": false,
-    };
-
-    // Collect data from API in sets of 100 until we grab it all
-    let responseCode, responseTextJSON;
-    do {
-      if (offset > 0) {
-        offsetText = "&offset=" + offset;
-      }
-      const response = UrlFetchApp.fetch(base + endpoint + offsetText, options);
-      responseCode = response.getResponseCode();
-      responseTextJSON = JSON.parse(response.getContentText());
-
-      // For debugging, download source text of URL to Google Drive since it's too much text for console log
-      //  console.log(DriveApp.createFile("Spotify_return.txt", JSON.stringify(response)).getUrl());
-
-      totalArray = totalArray.concat(responseTextJSON.items);
-      offset += 100;
-    } while (responseCode == 200 && responseTextJSON.items.length != 0);
-
-    // Filter array to remove empty tracks
-    totalArray = totalArray.filter(key => key.track != null);
-
-    // Return array of collected data
-    console.info(totalArray);
-    return totalArray;
-
-  } catch (err) {
-    console.error(`GetSpotifyData() failed: ${err}`);
-    return 1;
-  }
-
-}
-*/
