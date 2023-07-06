@@ -21,8 +21,8 @@ const EVENTSHEETHEADERNAMES = Object.freeze({
 });
 
 const SHEETS = Object.freeze({
-  Artists : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`spreadsheetId`)).getSheetByName(`Artists`),
-  Events :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`spreadsheetId`)).getSheetByName(`Events`),
+  Artists : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Artists`),
+  Events :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Events`),
 });
 
 const RESPONSECODES = Object.freeze({
@@ -111,7 +111,6 @@ const ARTISTS = [
   `Adventure Time`,
   `Aesop Rock`,
   `Air`,
-  `Al Green`,
   `Alarm Will Sound`,
   `Album Artwork`,
   `Alessandro Cortini`,
@@ -140,7 +139,6 @@ const ARTISTS = [
   `Arecibo`,
   `Armor For Sleep`,
   `As Tall As Lions`,
-  `Askjell`,
   `Asobi Seksu`,
   `At The Drive-In`,
   `Atoms for Peace`,
@@ -368,6 +366,7 @@ const ARTISTS = [
   `Gescom`,
   `Ghislain Poirier`,
   `Ghost`,
+  `Ghost BC`,
   `Ghostface Killah`,
   `Gidge`,
   `Gil Scott-Heron`,
@@ -496,6 +495,7 @@ const ARTISTS = [
   `Lokey`,
   `Lorde`,
   `Lorn`,
+  `Lorna Shore`,
   `Loscil`,
   `Low`,
   `Low End Theory`,
@@ -716,6 +716,7 @@ const ARTISTS = [
   `Slagsmalsklubben`,
   `Slaughterhouse`,
   `Slayer`,
+  `Sleep Token`,
   `Sleeping People`,
   `Slick Rick`,
   `Slipknot`,

@@ -37,8 +37,8 @@ class SpotifyService {
     const service = OAuth2.createService(`Spotify`)
       .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
       .setTokenUrl(`https://accounts.spotify.com/api/token`)
-      .setClientId(PropertiesService.getScriptProperties().getProperty(`clientIdSpotify`))
-      .setClientSecret(PropertiesService.getScriptProperties().getProperty(`clientSecretSpotify`))
+      .setClientId(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`))
+      .setClientSecret(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`))
       .setCallbackFunction((request) => {
         const service = GetSpotifyService();
         const isAuthorized = service.handleCallback(request);
@@ -85,12 +85,10 @@ class SpotifyService {
       return 1;
     }
     const options = {
-      "method": "GET",
-      "headers" : {
-        "Authorization" : "Bearer " + this.service.getAccessToken(),
-        "Content-Type" : "application/json",
-      },
-      "muteHttpExceptions" : false,
+      method : "GET",
+      contentType : "application/json",
+      headers : { "Authorization" : "Bearer " + this.service.getAccessToken(), },
+      muteHttpExceptions : false,
     };
     try {
       let data = [];
@@ -120,15 +118,15 @@ class SpotifyService {
     this._ClearData(SHEETS.Artists);    // Clear previous artist list
 
     let topArtists, playlistArtists, followedArtists, savedArtists;
-    if (PropertiesService.getScriptProperties().getProperty(`getTopArtists`)) {
+    if (PropertiesService.getScriptProperties().getProperty(`SPOTIFY_GET_TOP_ARTISTS`)) {
       topArtists = await this.GetTopArtists();
       console.warn(`Number of Artists: ${topArtists.length}`);
     }
-    if (PropertiesService.getScriptProperties().getProperty(`getArtistsFromPlaylist`)) {
+    if (PropertiesService.getScriptProperties().getProperty(`SPOTIFY_GET_PLAYLIST_ARTISTS`)) {
       playlistArtists = await this.GetPlaylistArtists();
       console.warn(`Number of Playlist Artists: ${playlistArtists.length}`);
     }
-    if (PropertiesService.getScriptProperties().getProperty(`getFollowing`)) { 
+    if (PropertiesService.getScriptProperties().getProperty(`SPOTIFY_GET_FOLLOWING`)) { 
       followedArtists = await this.GetFollowedArtists();
       console.warn(`Number of Followed Artists: ${followedArtists.length}`);
     }
@@ -213,7 +211,7 @@ class SpotifyService {
       return 1;
     }
     console.info(`Getting artists from playlists....`);
-    const playlistId = PropertiesService.getScriptProperties().getProperty(`playlistId`);
+    const playlistId = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_PLAYLIST_ID`);
     const url = this.playlistUrl + "/" + playlistId + "/tracks";
     console.info(url);
     const options = {
@@ -371,8 +369,8 @@ const GetSpotifyService = () => {
   const service = OAuth2.createService(`Spotify`)
     .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
     .setTokenUrl(`https://accounts.spotify.com/api/token`)
-    .setClientId(PropertiesService.getScriptProperties().getProperty(`clientIdSpotify`))
-    .setClientSecret(PropertiesService.getScriptProperties().getProperty(`clientSecretSpotify`))
+    .setClientId(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`))
+    .setClientSecret(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`))
     .setCallbackFunction((request) => {
       const service = GetSpotifyService();
       const isAuthorized = service.handleCallback(request);

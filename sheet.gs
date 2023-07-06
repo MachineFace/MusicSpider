@@ -127,10 +127,11 @@ const searchColForValue = (sheet, columnName, val) => {
 
 
 
-const writeArrayToColumn = (array, sheet, col) => {
-  for (let i = 0; i < array.length; i++) {
-    sheet.getRange(sheet.getLastRow() + 1 + i, col, 1, 1).setValues(array[i]);
-  };
+const WriteArrayToColumn = (array, sheet, col) => {
+  array.forEach( (entry, idx) => {
+    sheet.getRange(sheet.getLastRow() + 1 + idx, col, 1, 1).setValues(entry);
+  });
+  return 0;
 };
 
 
@@ -141,17 +142,17 @@ const isRowEmpty = (row) => row.filter((value) => value !== '').length === 0;
 const deleteEmptyRows = (sheet) => {
   try {
     sheet = sheet ? sheet : SpreadsheetApp.getActiveSheet();
-    let activeRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
-    let rowCount = activeRange.getHeight();
+    const activeRange = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn());
+    const rowCount = activeRange.getHeight();
 
     // Tests that the selection is a valid range.
     if (rowCount <= 0 || rowCount >= 10000) throw new Error(`Range either <= 0 or >= 10,000. Please fix it.`);
 
     // Utilizes an array of values for efficient processing to determine blank rows.
-    let activeRangeValues = activeRange.getValues();
+    const activeRangeValues = activeRange.getValues();
 
     // Maps the range values as an object with value (to test) and corresponding row index (with offset from selection).
-    let rowsToDelete = activeRangeValues.map((row, index) => ({ row, offset: index + activeRange.getRowIndex() }))
+    let rowsToDelete = activeRangeValues.map((row, index) => ({ row, offset : index + activeRange.getRowIndex() }))
       .filter(item => isRowEmpty(item.row)) // Test to filter out non-empty rows.
       .map(item => item.offset); //Remap to include just the row indexes that will be removed.
 

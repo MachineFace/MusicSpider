@@ -12,7 +12,7 @@ class Common {
    * @param {request} request
    * @returns {string} path
    */
-  ParsePathParameters(request) {
+  static ParsePathParameters(request) {
     if (!request.queryString.match(/\=/)) return request.queryString;  // If there`s only one parameter, just treat it as a path
     return request.parameter.path || ``;
   }
@@ -22,7 +22,7 @@ class Common {
    * @param {string} string
    * @returns {string} string
    */
-  StringTrim(string) {
+  static StringTrim(string) {
     const pattern = /(^[\s\u00a0\u200b\uFEFF]+)|([\s\u00a0\u200b\uFEFF]+$)/g;
     return string.replace(pattern, ``);
   }
@@ -32,7 +32,7 @@ class Common {
    * @param {string} string
    * @returns {string} string
    */
-  StripXml(input) {
+  static StripXml(input) {
     // Only parse input if it looks like it contains tags
     if (input.match(/<[^>]*>/)) {
       // Find where the tags start & end
@@ -62,7 +62,7 @@ class Common {
   /**
    * Create XML Element
    */
-  XmlElement(type, text) {
+  static XmlElement(type, text) {
     return XmlService
       .createElement(type)
       .setText(text);
@@ -73,7 +73,7 @@ class Common {
    * @param {string} input
    * @returns {[string]} string array
    */
-  PrettifyJson(input) {
+  static PrettifyJson(input) {
     return JSON.stringify(input, null, 4);
   }
 
@@ -82,7 +82,7 @@ class Common {
    * @param {string} path
    * @param {[object]} objects
    */
-  CollateArrays(path, objects) {
+  static CollateArrays(path, objects) {
     let outArray = [];
     let chunks = path.split(`.`);
 
@@ -102,7 +102,7 @@ class Common {
    * Remove duplictes from an array
    * @param {array} array
    */
-  UniqueArray(array) {
+  static UniqueArray(array) {
     return [...new Set(array)];
   }
 
@@ -111,7 +111,7 @@ class Common {
    * @param {number} n
    * @returns {bool} boolean
    */
-  IsEven(n) {
+  static isEven(n) {
     return n % 2 === 0;
   }
 
@@ -120,7 +120,7 @@ class Common {
    * @param {number} n
    * @returns {bool} boolean
    */
-  IsOdd(n) {
+  static isOdd(n) {
     return n % 2 !== 0;
   }
 }
@@ -138,11 +138,10 @@ const _testSleep = () => {
 }
 
 const _testC = () => {
-  const c = new Common();
   const monthNames = [`Jan`, `Feb`, `Mar`, `Apr`, `May`, `June`, `July`, `Aug`, `Jan`, `Feb`, `Sept`, `Oct`, `Mar`, `Nov`, `Dec`, ];
-  console.info(c.UniqueArray(monthNames));
-  console.info(`Test 2 is even: ${c.IsEven(2)}`);
-  console.info(`Test 2 is odd: ${c.IsOdd(2)}`);
+  console.info(Common.UniqueArray(monthNames));
+  console.info(`Test 2 is even: ${Common.isEven(2)}`);
+  console.info(`Test 2 is odd: ${Common.isOdd(2)}`);
 }
 
 

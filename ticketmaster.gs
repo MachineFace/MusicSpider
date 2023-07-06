@@ -35,13 +35,13 @@ class TicketmasterFactory {
                 }
                 this.WriteEventToSheet(event);   // Write to Sheet
                 count += 1;
-                if (PropertiesService.getScriptProperties().getProperty(`createCalendarEvents`)) CreateCalendarEvent(event);  // Write Calendar Event for new events
+                // if (PropertiesService.getScriptProperties().getProperty(`createCalendarEvents`)) CreateCalendarEvent(event);  // Write Calendar Event for new events
               }
             }
           });
       });
       return count;
-    }catch (err) { 
+    } catch (err) { 
       console.error(`"RefreshEvents()" failed: ${err}`);
       return 1;
     }
@@ -103,7 +103,7 @@ class TicketmasterFactory {
    */
   async ParseResults(keyword) {
     try {
-      if (!keyword) throw new Error(`"ParseResults()" Keyword not provided.`);
+      if (!keyword) throw new Error(`Keyword not provided.`);
       let events = {};
 
       const data = await this._SearchTicketmaster(keyword);
@@ -147,7 +147,7 @@ class TicketmasterFactory {
           }
         });
       });
-      console.info(new Common().PrettifyJson(events));
+      console.info(Common.PrettifyJson(events));
       return await events;
     } catch (err) {
       console.error(`"ParseResults()" failed: ${err}`);
@@ -202,7 +202,7 @@ class TicketmasterFactory {
       if (responseCode != 200) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
       const content = JSON.parse(response.getContentText());
       if(content.hasOwnProperty(`_embedded`)) {
-        // console.info(new Common().PrettifyJson(content._embedded.events));  
+        // console.info(Common.PrettifyJson(content._embedded.events));  
         return content._embedded.events;
       }
       return 0;
@@ -262,6 +262,10 @@ class TicketmasterFactory {
 
 }
 
+/**
+ * Main Refresh Event Call
+ * @TRIGGERED
+ */
 const refreshEvents = async () => await new TicketmasterFactory().RefreshEvents();
 
 
@@ -269,7 +273,7 @@ const _testSearch = () => {
   const t = new TicketmasterFactory();
   const artists = t._GetArtistsListFromSheet().slice(0, 50);
   artists.forEach(async (artist) => {
-    console.info(new Common().PrettifyJson(await t.ParseResults(artist)));
+    console.info(Common.PrettifyJson(await t.ParseResults(artist)));
   });
 }
 

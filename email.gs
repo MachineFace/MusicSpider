@@ -56,7 +56,7 @@ class Emailer {
       });
       console.info(`Email sent to ${this.email}`);
     } catch (err) {
-      console.error(`${err} : Couldn't send email. Something went wrong.`);
+      console.error(`"SendEmail()" failed : ${err}`);
     }
   }
 }
@@ -140,7 +140,7 @@ class CreateMessage {
       const eventDay = eDate.getDay(), eventDayNum = eDate.getDate(), eventMonth = eDate.getMonth(), eventYear = eDate.getFullYear();
       const eventTime = Utilities.formatDate(eDate, "PST", "h a");
       // Start a new table row every even event
-      if (new Common().IsEven(index)) message += `<tr>`;
+      if (Common.isEven(index)) message += `<tr>`;
       message += `<td class="tg-0lax" style="height:300px;vertical-align:top;"><div style="text-align: left;margin-left: 10px;">`;
       message += `<div class="" style=""><a href='${url}'>`;
       message += `<img src='${image}' class="" style="width:90%;float:center;width:350px;height:200px;object-fit:cover;"/></div>`;
@@ -160,7 +160,7 @@ class CreateMessage {
       message += `<span style="color:#696969;font-size:12px;font-family:georgia,times,times new roman,serif;">at ${venue}, ${city}<br/> `;
       message += `<strong>${dayNames[eventDay]}, ${monthNames[eventMonth]} ${eventDayNum} ${eventYear}</strong> ${eventTime}</span></span></div>`;
       message += `<br/></td>`;
-      if (new Common().IsOdd(index)) message += `</tr><br/>`; // End table row every odd event
+      if (Common.isOdd(index)) message += `</tr><br/>`; // End table row every odd event
     };
     message += `<br/></tbody></table>`; 
     message += `</td></tr></tbody></table>`;
