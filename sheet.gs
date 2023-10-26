@@ -23,6 +23,27 @@ const GetByHeader = (sheet, columnName, row) => {
 
 /**
  * ----------------------------------------------------------------------------------------------------------------
+ * Return the values of a column by the name
+ * @param {sheet} sheet
+ * @param {string} colName
+ * @param {number} row
+ */
+const GetColumnDataByHeader = (sheet, columnName) => {
+  try {
+    const data = sheet.getDataRange().getValues();
+    const col = data[0].indexOf(columnName);
+    if (col == -1) throw new Error(`Column not found`);
+    let colData = data.map(d => d[col]);
+    colData.splice(0, 1);
+    return colData;
+  } catch (err) {
+    console.error(`"GetColumnDataByHeader()" failed : ${err}`);
+    return 1;
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------------------------------------------------
  * Return a dictionary of values from a whole row on a given sheet
  * @param {sheet} sheet
  * @param {number} row

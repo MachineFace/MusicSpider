@@ -6,24 +6,25 @@ const sendEmail = async () => {
     console.warn("No events to add to email.");
     return;
   }
-  for (const [index, [key]] of Object.entries(Object.entries(events))) {
-    if (events[key].acts == ""){
-      msgSubjRaw.push(events[key].title);
-      continue;
-    }
-    let acts = events[key].acts.split(',');
-    msgSubjRaw.push(acts[0]);
-  }
-  
+  Object.entries(events).forEach(entry => {
+    const { title, venue, city, date, url, image, acts, address, sheetName, row, } = entry[1];
+    if (!acts) msgSubjRaw.push(title);
+    const split = acts.split(',');
+    msgSubjRaw.push(split[0]);
+  });
   msgSubj += [...new Set(msgSubjRaw)].join(', ');    // remove duplicates from list of acts
+  console.info(msgSubj)
 
   new Emailer({
     message: new CreateMessage({events : events}),
-    email: PropertiesService.getScriptProperties().getProperty(`email`),
+    email: PropertiesService.getScriptProperties().getProperty(`MY_EMAIL`),
     subject: msgSubj,
   });
 }
 
+const _ts = () => {
+  sendEmail();
+}
 
 /**
  * -----------------------------------------------------------------------------------------------------------------

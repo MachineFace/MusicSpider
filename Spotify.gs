@@ -7,7 +7,16 @@
 class SpotifyService {
   constructor() {
     /** @private */
-    this.baseUrl = `https://api.spotify.com/v1`; 
+    this.baseUrl = `https://api.spotify.com/v1`;
+    /** @private */
+    this.clientID = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`);
+    /** @private */
+    this.clientSecret = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`);
+
+    this.getTopArtists = true;
+    this.getPlaylistArtists = true;
+    this.getFollowingArtists = true,
+
     /** @private */
     this.profileUrl = `${this.baseUrl}/me`;
     /** @private */
@@ -37,8 +46,8 @@ class SpotifyService {
     const service = OAuth2.createService(`Spotify`)
       .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
       .setTokenUrl(`https://accounts.spotify.com/api/token`)
-      .setClientId(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`))
-      .setClientSecret(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`))
+      .setClientId(this.clientID)
+      .setClientSecret(this.clientSecret)
       .setCallbackFunction((request) => {
         const service = GetSpotifyService();
         const isAuthorized = service.handleCallback(request);
@@ -118,15 +127,15 @@ class SpotifyService {
     this._ClearData(SHEETS.Artists);    // Clear previous artist list
 
     let topArtists, playlistArtists, followedArtists, savedArtists;
-    if (PropertiesService.getScriptProperties().getProperty(`SPOTIFY_GET_TOP_ARTISTS`)) {
+    if (this.getTopArtists) {
       topArtists = await this.GetTopArtists();
       console.warn(`Number of Artists: ${topArtists.length}`);
     }
-    if (PropertiesService.getScriptProperties().getProperty(`SPOTIFY_GET_PLAYLIST_ARTISTS`)) {
+    if (this.getPlaylistArtists) {
       playlistArtists = await this.GetPlaylistArtists();
       console.warn(`Number of Playlist Artists: ${playlistArtists.length}`);
     }
-    if (PropertiesService.getScriptProperties().getProperty(`SPOTIFY_GET_FOLLOWING`)) { 
+    if (this.getFollowingArtists) { 
       followedArtists = await this.GetFollowedArtists();
       console.warn(`Number of Followed Artists: ${followedArtists.length}`);
     }

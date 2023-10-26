@@ -83,7 +83,7 @@ const popupSendEmail = () => {
   const ui = SpreadsheetApp.getUi();
   ui.alert(
     SERVICE_NAME,
-    `Sending Email to ${PropertiesService.getScriptProperties().getProperty(`email`)}...`,
+    `Sending Email to ${PropertiesService.getScriptProperties().getProperty(`MY_EMAIL`)}...`,
     ui.ButtonSet.OK
   );
 }

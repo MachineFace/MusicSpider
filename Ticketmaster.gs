@@ -3,7 +3,18 @@
  */
 class TicketmasterFactory {
   constructor() {
+    /** @private */
     this.ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json`;
+    /** @private */
+    this.ticketmasterID = PropertiesService.getScriptProperties().getProperty(`TICKETMASTER_ID`);
+    /** @private */
+    this.ticketmasterSecret = PropertiesService.getScriptProperties().getProperty(`TICKETMASTER_SECRET`);
+    /** @private */
+    this.latlong = PropertiesService.getScriptProperties().getProperty(`LATLONG`);
+    /** @private */
+    this.radius = PropertiesService.getScriptProperties().getProperty(`RADIUS`);
+    /** @private */
+    this.units = PropertiesService.getScriptProperties().getProperty(`UNITS`);
   }
 
   /**
@@ -106,7 +117,7 @@ class TicketmasterFactory {
       if (!keyword) throw new Error(`Keyword not provided.`);
       let events = {};
 
-      const data = await this._SearchTicketmaster(keyword);
+      const data = await this.SearchTicketmaster(keyword);
       if (data == 0) return `No results.`;
       data?.forEach((item) => {
         // console.info(`DATA ---> ${new Common().PrettifyJson(item)}`);
@@ -181,25 +192,22 @@ class TicketmasterFactory {
    * @param {string} kwargs
    * @return {object} response
    */
-  async _SearchTicketmaster(keyword) {
-    console.info(`Searching Ticketmaster for ${keyword}`);
-    let params = `?apikey=${PropertiesService.getScriptProperties().getProperty(`ticketmaserKey`)}`;
-    params += `&latlong=${PropertiesService.getScriptProperties().getProperty(`latlong`)}`;
-    params += `&radius=${PropertiesService.getScriptProperties().getProperty(`radius`)}`;
-    params += `&unit=${PropertiesService.getScriptProperties().getProperty(`unit`)}`;
-    params += `&keyword=${encodeURI(keyword)}`;
-
-    const options = {
-      "method" : "GET",
-      "async" : true,
-      "contentType" : "application/json",
-      "muteHttpExceptions" : false,
-    };
+  async SearchTicketmaster(keyword = ``) {
     try {
+      console.info(`Searching Ticketmaster for ${keyword}`);
+      const url = `${this.ticketmasterUrl}?apikey=${this.ticketmasterID}&latlong=${this.latlong}&radius=${this.radius}&unit=${this.units}&keyword=${encodeURI(keyword)}`;
+
+      const options = {
+        "method" : "GET",
+        "async" : true,
+        "contentType" : "application/json",
+        "muteHttpExceptions" : false,
+      };
       Sleep(500);       // Wait a sec
-      const response = await UrlFetchApp.fetch(this.ticketmasterUrl + params, options);
+      const response = await UrlFetchApp.fetch(url, options);
       const responseCode = response.getResponseCode();
       if (responseCode != 200) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+
       const content = JSON.parse(response.getContentText());
       if(content.hasOwnProperty(`_embedded`)) {
         // console.info(Common.PrettifyJson(content._embedded.events));  
@@ -207,7 +215,7 @@ class TicketmasterFactory {
       }
       return 0;
     } catch (err) {
-      console.error(`"_SearchTicketmaster()" failed: ${err}`);
+      console.error(`"SearchTicketmaster()" failed: ${err}`);
       return 1;
     }
   }

@@ -1,6 +1,7 @@
 
 // ---------------------------------------------------------------------------------------------------------------
-/** @Description
+/** 
+ * String Operations
  * javaScript/Google Apps script functions that are equivalent to common VBA functions
  * in general these provide the same functionality and have the same calling stack
  */
@@ -206,8 +207,11 @@ class StringOperations {
 
 
 
-// Date functions
+
 // ---------------------------------------------------------------------------------------------------------------
+/**
+ * Date Operations
+ */
 class DateOperations {
   constructor() {
 
@@ -248,8 +252,11 @@ const Xor = (a, b) => a ? !b : b;
 
 
 
-// Informational functions
+
 // ---------------------------------------------------------------------------------------------------------------
+/**
+ * Informational Functions
+ */
 class Test {
   constructor() {
 
@@ -402,6 +409,18 @@ class Test {
   }
 }
 
+/**
+ * Extract City From Address
+ * @param {string} address
+ * @return {string} city
+ */
+const ExtractCityFromAddress = (address = `123 Main St, Springfield, IL 12345`) => {
+  address = address != null && address != undefined ? address : `123 Main St, San Francisco, CA 94606`;
+  const regex = /,\s*([^,]+),\s*([A-Z]{2})\s*\d{5}$/;
+  const match = address.match(regex);
+  if (match && match[1]) return match[1].trim();
+  else return RESIDENT_ADVISOR_REGIONS[218];
+}
 
 
 const _testS = () => {
