@@ -1,4 +1,5 @@
 /**
+ * ----------------------------------------------------------------------------------------------------------------
  * Resident Advisor Factory
  */
 class ResidentAdvisorFactory {
@@ -10,7 +11,6 @@ class ResidentAdvisorFactory {
   }
 
   /**
-   * ----------------------------------------------------------------------------------------------------------------
    * Send fetch requests to Resident Advisor - multiple if getting all pages
    * Returns each event combined in one array
    * @private
@@ -61,7 +61,6 @@ class ResidentAdvisorFactory {
   }
 
   /**
-   * ----------------------------------------------------------------------------------------------------------------
    * Returns the headers and variables formatted for the API fetch request
    * @private
    * @param {string} page which page of results to fetch 
@@ -110,14 +109,13 @@ class ResidentAdvisorFactory {
   }
 
   /**
-   * ----------------------------------------------------------------------------------------------------------------
    * Searches the results to return only events that match artists in your list
-   * @param {array} artistList 
    */
-  async SearchRA(artistList) {
+  async ParseResults() {
     try {
+      const artistList = this.GetArtistList();
       let results = [];
-      const listings = await this.GetData(this.region);
+      const listings = await this.GetData();
       listings.forEach(listing => {
         const event = listing?.event;
         if(!event) return;
@@ -179,13 +177,12 @@ class ResidentAdvisorFactory {
       // console.info(JSON.stringify(results));
       return ordered;
     } catch (err) {
-      console.error(`"SearchRA()" failed : ${err}`);
+      console.error(`"ParseResults()" failed : ${err}`);
       return [];
     }
   }
 
   /**
-   * ----------------------------------------------------------------------------------------------------------------
    * Filter list of new events to exclude ones that already exist on the Events Sheet
    * @private
    * @param {array} newArray list of new results
@@ -236,16 +233,14 @@ class ResidentAdvisorFactory {
 
 
   /**
-   * ----------------------------------------------------------------------------------------------------------------
    * Main handler function for Resident Advisor API
    * Reaches out to RA API to get results, 
    * @param {array} artistsArr the array of artists in the Artists List sheet
    */
   async Main() {
     try {
-      const artists = this.GetArtistList();
       const events = await this.GetExistingEvents();
-      const results = await this.SearchRA(artists);
+      const results = await this.ParseResults();
 
       // let filteredEvents = this.FilterNewEvents(results, events, "title", "venue", "date", "url");
       // console.info(`Resident Advisor: ${filteredEvents}`);
