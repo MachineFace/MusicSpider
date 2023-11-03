@@ -12,24 +12,10 @@ class SpotifyService {
     this.clientID = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`);
     /** @private */
     this.clientSecret = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`);
-
-
+    /** @private */
+    this.playlistId = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_PLAYLIST_ID`);
     /** @private */
     this.profileUrl = `${this.baseUrl}/me`;
-    /** @private */
-    this.playlistUrl = `${this.baseUrl}/playlists`;
-    /** @private */
-    this.followUrl = `${this.profileUrl}/following`;
-    /** @private */
-    this.savedTracksUrl = `${this.profileUrl}/tracks`;
-    /** @private */
-    this.savedAlbumsUrl = `${this.profileUrl}/albums`;
-    /** @private */
-    this.savedShowsUrl = `${this.profileUrl}/shows`;
-    /** @private */
-    this.savedEpisodesUrl = `${this.profileUrl}/episodes`;
-    /** @private */
-    this.topArtistsUrl = `${this.profileUrl}/top/artists`;
 
     /** @private */
     this.service = this._CreateService();
@@ -125,37 +111,30 @@ class SpotifyService {
 
       await this.GetTopArtists()
         .then(topArtists => {
-          if(topArtists) {
-            console.warn(`Number of Artists: ${topArtists.length}`);
-            artists.push(...topArtists);
-          }
+          if(topArtists) artists.push(...topArtists);
           Utilities.sleep(sleepLength * 1000);
         });
 
       await this.GetPlaylistArtists()
         .then(playlistArtists => {
-          if(playlistArtists) {
-            console.warn(`Number of Playlist Artists: ${playlistArtists.length}`);
-            artists.push(...playlistArtists);
-          }
+          if(playlistArtists) artists.push(...playlistArtists);
           Utilities.sleep(sleepLength * 1000);
         });
 
       await this.GetFollowedArtists()
         .then(followedArtists => {
-          if(followedArtists) {
-            console.warn(`Number of Followed Artists: ${followedArtists.length}`);
-            artists.push(...followedArtists);
-          }
+          if(followedArtists) artists.push(...followedArtists);
           Utilities.sleep(sleepLength * 1000);
         });
       
       await this.GetSavedTracksArtists()
         .then(savedArtists => {
-          if(savedArtists) {
-            console.warn(`Number of Saved Artists: ${savedArtists.length}`);
-            artists.push(...savedArtists);
-          }
+          if(savedArtists) artists.push(...savedArtists);
+          Utilities.sleep(sleepLength * 1000);
+        });
+      await this.GetSavedAlbums()
+        .then(savedAlbumArtists => {
+          if(savedAlbumArtists) artists.push(...savedAlbumArtists);
           Utilities.sleep(sleepLength * 1000);
         });
 
@@ -194,9 +173,10 @@ class SpotifyService {
    */
   async GetSavedTracksArtists() {
     console.info(`Getting Saved Tracks Artists....`);
+    const savedTracksUrl = `${this.profileUrl}/tracks`;
     const params = "?limit=50";
     try {
-      const data = await this._GetData(this.savedTracksUrl + params);
+      const data = await this._GetData(savedTracksUrl + params);
       let artists = [];
       data.forEach(entry => {
         entry.items.forEach(item => {
@@ -204,7 +184,7 @@ class SpotifyService {
         });
       })
       const filteredArtists = [...new Set(artists)].sort();
-      console.info(`Saved Tracks Artists Count: ${filteredArtists.length}`);
+      console.warn(`Number of Saved Artists: ${filteredArtists.length}`);
       return filteredArtists;
     } catch(err) {
       console.error(`"GetSavedTracksArtists()" failed: ${err}`);
@@ -217,8 +197,9 @@ class SpotifyService {
    */
   async GetFollowedArtists() {
     console.info(`Getting Followed Artists...`);
+    const followUrl = `${this.profileUrl}/following`;
     const params = "?type=artist&limit=50";
-    const data = await this._GetData(this.followUrl + params);
+    const data = await this._GetData(followUrl + params);
 
     let artists = [];
     data?.forEach(entry => {
@@ -228,7 +209,7 @@ class SpotifyService {
       }
     })
     artists = [...new Set(artists)].sort();
-    console.info(`Followed Artists Count: ${artists.length}`);
+    console.warn(`Number of Followed Artists: ${artists.length}`);
     return artists;
   }
 
@@ -244,9 +225,9 @@ class SpotifyService {
       return 1;
     }
     console.info(`Getting artists from playlists....`);
-    const playlistId = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_PLAYLIST_ID`);
-    const url = this.playlistUrl + "/" + playlistId + "/tracks";
-    console.info(url);
+    const playlistUrl = `${this.baseUrl}/playlists`;
+    const url = playlistUrl + "/" + this.playlistId + "/tracks";
+
     const options = {
       "method": "GET",
       "headers" : {
@@ -255,14 +236,14 @@ class SpotifyService {
       },
       "muteHttpExceptions" : false,
     };
+
     try {
-      let responseCode, data;
-      do {
-        const response = await UrlFetchApp.fetch(url, options);
-        responseCode = response.getResponseCode();
-        data = JSON.parse(response.getContentText());
-      } while (responseCode == 200 && responseCode == 201);
+      let data;
+      const response = await UrlFetchApp.fetch(url, options);
+      const responseCode = response.getResponseCode();
       if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      
+      data = JSON.parse(response.getContentText());
       if (!data) throw new Error(`No data received from your watch playlist...`);
 
       let artists = [];
@@ -271,10 +252,11 @@ class SpotifyService {
         artists.push(artist);
       });
       const filteredArtists = [...new Set(artists)];
-      console.info(`Playlist Artists Count: ${filteredArtists.length}`);
+      console.warn(`Number of Playlist Artists: ${filteredArtists.length}`);
       return filteredArtists;
     } catch(err) {
       console.error(`"GetPlaylistArtists()" failed: ${err}`);
+      return 1;
     }
   }
 
@@ -283,38 +265,15 @@ class SpotifyService {
    * Returns an array of Top Artists as gathered by Spotify
    * This searches `long term`, `medium term`, and `short term`
    */
-  async GetTopArtists() {  
-
-    let long_term1 = await this._GetTopData(`long_term`) ? await this._GetTopData(`long_term`) : [];    // LONG TERM top artists
-    let long_term2 = await this._GetTopData(`long_term`) ? await this._GetTopData(`long_term`) : [];   // LONG TERM top artists OFFSET +48
-    let med_term = await this._GetTopData(`medium_term`) ? await this._GetTopData(`medium_term`) : [];    // MEDIUM TERM top artists
-    let short_term = await this._GetTopData(`short_term`) ? await this._GetTopData(`short_term`) : [];   // SHORT TERM top artists
-
-    let artists = [...long_term1, ...long_term2, ...med_term, ...short_term];
-    
-    if (artists.length == 0) {
-      console.error(`Returned 0 top artists somehow....`);
-      return [];
-    }
-    const setOfArtists = [...new Set(artists)].sort();
-    console.info(setOfArtists);
-    return setOfArtists;
-  }
-
-  /**
-   * Returns an array of Top Artists as gathered by Spotify
-   * This searches `long term`, `medium term`, and `short term`
-   * @private
-   * @param {string} term expects `long_term`, `medium_term`, or `short_term`
-   * @param {integer} offset 
-   * @returns {[artists]} list of artists
-   */
-  async _GetTopData(term) {
+  async GetTopArtists() {
     if(!this._isServiceActive()) {
       const authURL = service.getAuthorizationUrl();
       console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
       return 1;
     }
+
+    const topArtistsUrl = `${this.profileUrl}/top/artists`;
+
     const options = {
       "method": "GET",
       "headers" : {
@@ -323,29 +282,38 @@ class SpotifyService {
       },
       "muteHttpExceptions" : false,
     };
-    console.info(`Getting top artists (${term})...`);
-    const params = `?time_range=${term}&limit=50`;
+    const terms = [ `long_term`, `medium_term`, `short_term`, ];
 
     try {
-      let data = [];
-      let responseCode;
-      do {
-        const response = await UrlFetchApp.fetch(this.topArtistsUrl + params, options);
-        responseCode = response.getResponseCode();
-        data.push(JSON.parse(response.getContentText()));
-      } while (responseCode == 200 && responseCode == 201);
-      if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
-      if (!data) throw new Error(`No data received (${term})`);
-      
       let artists = [];
-      data.forEach(entry => {
-        entry.items.forEach(item => artists.push(item.name));
+      terms.forEach( async(term) => {
+        let data = [];
+        console.info(`Getting top artists (${term})...`);
+        const params = `?time_range=${term}&limit=50`;
+        const response = await UrlFetchApp.fetch(topArtistsUrl + params, options);
+        const responseCode = response.getResponseCode();
+        if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+
+        data.push(JSON.parse(response.getContentText()));
+        if (!data) throw new Error(`No data received (${term})`);
+
+        const temp = [];
+        data.forEach(entry => {
+          entry?.items?.forEach(item => {
+            const artist = item?.name;
+            temp.push(artist);
+          });
+        });
+        artists.push(...temp);
       });
-      artists = [...new Set(artists)].sort();
-      console.info(`Top Data Artists Count ${term}: ${artists.length}`);
-      return artists;
+
+      const filteredArtists = [...new Set(await artists)].sort();
+      console.info(filteredArtists);
+      console.warn(`Number of Top Artists: ${filteredArtists.length}`);
+      return filteredArtists;
     } catch(err) {
       console.error(`"GetData()" failed: ${err}`);
+      return 1;
     }
 
     // let artists = [];
@@ -356,6 +324,33 @@ class SpotifyService {
     // });
     // console.info(artists);
     // return artists;
+  }
+
+  /**
+   * Get Saved Album Artists
+   * @return {[string]} artists
+   */
+  async GetSavedAlbums() {
+    console.info(`Getting Saved Albums....`);
+    const savedAlbumsUrl = `${this.profileUrl}/albums`;
+    const params = "?limit=50";
+    try {
+      const data = await this._GetData(savedAlbumsUrl + params);
+
+      let artists = [];
+      data.forEach(entry => {
+        entry.items.forEach(item => {
+          const artist = item?.album?.artists[0]?.name;
+          artists.push(artist);
+        });
+      });
+      const filteredArtists = [...new Set(artists)].sort();
+      console.warn(`Number of Saved Album Artists: ${filteredArtists.length}`);
+      return filteredArtists;
+    } catch(err) {
+      console.error(`"GetSavedAlbums()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -390,8 +385,12 @@ class SpotifyService {
  */
 const refreshArtists = () => new SpotifyService().RefreshArtists();
 
-
-
+/**
+ * @private
+ */
+const _testSP = async () => {
+  const s = new SpotifyService().GetTopArtists();
+} 
 
 
 
