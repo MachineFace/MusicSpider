@@ -98,7 +98,7 @@ class SpotifyService {
     };
     try {
       let data = [];
-      for(let i = 0; i < 500; i += 100) {
+      for(let i = 0; i < 1000; i += 100) {
         const response = await UrlFetchApp.fetch(url + "&offset=" + i, options);
         const responseCode = response.getResponseCode();
         if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
