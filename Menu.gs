@@ -89,8 +89,8 @@ const popupSendEmail = () => {
 }
 
 
-const main = () => {
-  // await refreshArtists();
+const main = async () => {
+  await refreshArtists();
   // await refreshEvents();
   // await sendEmail();
 }

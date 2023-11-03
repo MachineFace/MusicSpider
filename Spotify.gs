@@ -13,9 +13,6 @@ class SpotifyService {
     /** @private */
     this.clientSecret = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`);
 
-    this.getTopArtists = true;
-    this.getPlaylistArtists = true;
-    this.getFollowingArtists = true,
 
     /** @private */
     this.profileUrl = `${this.baseUrl}/me`;
@@ -101,16 +98,12 @@ class SpotifyService {
     };
     try {
       let data = [];
-      let responseCode;
-      let offsetString = ``;
-      for(let i = 0; i < 2000; i += 100) {
-        do {
-          offsetString = i > 0 && i < 1000 ? "&offset=" + i : "&offset=1000";
-          const response = await UrlFetchApp.fetch(url + offsetString, options);
-          responseCode = response.getResponseCode();
-          data.push(JSON.parse(response.getContentText()));
-        } while (responseCode == 200 && responseCode == 201);
+      for(let i = 0; i < 500; i += 100) {
+        const response = await UrlFetchApp.fetch(url + "&offset=" + i, options);
+        const responseCode = response.getResponseCode();
         if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+        data.push(JSON.parse(response.getContentText()));
+
       }
       const parsed = data.flat();
       return parsed;
@@ -124,33 +117,62 @@ class SpotifyService {
    * Refresh the list of Artists from Spotify
    */
   async RefreshArtists() {
-    this._ClearData(SHEETS.Artists);    // Clear previous artist list
+    try {
+      const sleepLength = 5;
+      this._ClearData(SHEETS.Artists);    // Clear previous artist list
 
-    let topArtists, playlistArtists, followedArtists, savedArtists;
-    if (this.getTopArtists) {
-      topArtists = await this.GetTopArtists();
-      console.warn(`Number of Artists: ${topArtists.length}`);
-    }
-    if (this.getPlaylistArtists) {
-      playlistArtists = await this.GetPlaylistArtists();
-      console.warn(`Number of Playlist Artists: ${playlistArtists.length}`);
-    }
-    if (this.getFollowingArtists) { 
-      followedArtists = await this.GetFollowedArtists();
-      console.warn(`Number of Followed Artists: ${followedArtists.length}`);
-    }
-    savedArtists = await this.GetSavedTracksArtists();
-    console.warn(`Number of Saved Artists: ${savedArtists.length}`);
+      let artists = [...ARTISTS];
 
-    let artists = [...new Set([...topArtists, ...playlistArtists, ...followedArtists, ...savedArtists, ...ARTISTS])].sort();   // Combine arrays and filter unique
-    if (artists.length < 1) console.info(`Unable to retrieve a list of artists from Spotify`);
-    
-    artists = this._FilterArtists(artists);
-    console.warn(`Total Artists: ${artists.length}`);
-    this._WriteArtistsToSheet(artists);    // Write new artists to sheet
-    SHEETS.Artists.getRange(2, 1, SHEETS.Artists.getLastRow(), 1)
-      .setHorizontalAlignment('left');
-    return artists.length;
+      await this.GetTopArtists()
+        .then(topArtists => {
+          if(topArtists) {
+            console.warn(`Number of Artists: ${topArtists.length}`);
+            artists.push(...topArtists);
+          }
+          Utilities.sleep(sleepLength * 1000);
+        });
+
+      await this.GetPlaylistArtists()
+        .then(playlistArtists => {
+          if(playlistArtists) {
+            console.warn(`Number of Playlist Artists: ${playlistArtists.length}`);
+            artists.push(...playlistArtists);
+          }
+          Utilities.sleep(sleepLength * 1000);
+        });
+
+      await this.GetFollowedArtists()
+        .then(followedArtists => {
+          if(followedArtists) {
+            console.warn(`Number of Followed Artists: ${followedArtists.length}`);
+            artists.push(...followedArtists);
+          }
+          Utilities.sleep(sleepLength * 1000);
+        });
+      
+      await this.GetSavedTracksArtists()
+        .then(savedArtists => {
+          if(savedArtists) {
+            console.warn(`Number of Saved Artists: ${savedArtists.length}`);
+            artists.push(...savedArtists);
+          }
+          Utilities.sleep(sleepLength * 1000);
+        });
+
+      artists = [...new Set(artists)].sort();   // Combine arrays and filter unique
+      if (artists.length < 1) console.info(`Unable to retrieve a list of artists from Spotify`);
+      
+      artists = this._FilterArtists(artists);
+      if(artists) console.warn(`Total Artists: ${artists.length}`);
+
+      this._WriteArtistsToSheet(artists);    // Write new artists to sheet
+      SHEETS.Artists.getRange(2, 1, SHEETS.Artists.getLastRow(), 1)
+        .setHorizontalAlignment('left');
+      return artists.length;
+    } catch(err) {
+      console.error(`RefreshArtists() failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -199,9 +221,11 @@ class SpotifyService {
     const data = await this._GetData(this.followUrl + params);
 
     let artists = [];
-    data.forEach(entry => {
-      const items = entry.artists.items;
-      items.forEach(item => artists.push(item.name));
+    data?.forEach(entry => {
+      if(entry) {
+        const items = entry?.artists?.items;
+        if(items) items.forEach(item => artists.push(item.name));
+      }
     })
     artists = [...new Set(artists)].sort();
     console.info(`Followed Artists Count: ${artists.length}`);
@@ -261,10 +285,10 @@ class SpotifyService {
    */
   async GetTopArtists() {  
 
-    let long_term1 = await this._GetTopData(`long_term`);    // LONG TERM top artists
-    let long_term2 = await this._GetTopData(`long_term`);   // LONG TERM top artists OFFSET +48
-    let med_term = await this._GetTopData(`medium_term`);    // MEDIUM TERM top artists
-    let short_term = await this._GetTopData(`short_term`);   // SHORT TERM top artists
+    let long_term1 = await this._GetTopData(`long_term`) ? await this._GetTopData(`long_term`) : [];    // LONG TERM top artists
+    let long_term2 = await this._GetTopData(`long_term`) ? await this._GetTopData(`long_term`) : [];   // LONG TERM top artists OFFSET +48
+    let med_term = await this._GetTopData(`medium_term`) ? await this._GetTopData(`medium_term`) : [];    // MEDIUM TERM top artists
+    let short_term = await this._GetTopData(`short_term`) ? await this._GetTopData(`short_term`) : [];   // SHORT TERM top artists
 
     let artists = [...long_term1, ...long_term2, ...med_term, ...short_term];
     
