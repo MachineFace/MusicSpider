@@ -33,13 +33,61 @@
 const BarMenu = () => {
   SpreadsheetApp.getUi()
     .createMenu(`Music Spider`)
+    .addItem(`Authorize Spotify`, `popupSpotifyAuth`)
     .addItem(`Get Redirect URI for Spotify`, `popupRedirectURI`)
     .addItem(`Refresh Artists`, `popupRefreshArtists`)
     .addItem(`Refresh Events`, `popupRefreshEvents`)
+    .addItem(`Refresh Comedy Events`, `popupRefreshComedyEvents`)
     .addItem(`Send Email Newsletter`, `popupSendEmail`)
     .addSeparator()
+    .addItem(`Create ID for SELECTED entry.`, `popupCreateNewID`)
     .addItem(`Delete Blank Rows`, `deleteEmptyRows`)
     .addToUi();
+};
+
+/**
+ * Create a pop-up to make a new ID
+ */
+const popupCreateNewID = () => {
+  const ui = SpreadsheetApp.getUi();
+  const thisSheet = SpreadsheetApp.getActiveSheet();
+  const thisSheetName = thisSheet.getSheetName();
+  let thisRow = thisSheet.getActiveRange().getRow();
+  const newID = new IDService().id;
+
+  if(thisSheetName != SHEETS.Artists && thisSheetName != SHEETS.Comedians && thisSheetName != SHEETS.Logger) {
+    const a = ui.alert(
+      `${SERVICE_NAME}: Incorrect Sheet!`,
+      `Please select from a valid sheet (eg. Laser Cutter or Fablight). Select one cell in the row and a ticket will be created.`,
+      Browser.Buttons.OK,
+    );
+    if(a === ui.Button.OK) return;
+  } 
+  const { name, id } = GetRowData(thisSheet, thisRow);
+  if(IDService.isValid(id)) {
+    const a = ui.alert(
+      `${SERVICE_NAME}: Error!`,
+      `ID for ${name} exists already!\n${id}`,
+      ui.ButtonSet.OK
+    );
+    if(a === ui.Button.OK) return;
+  }
+  SetByHeader(thisSheet, HEADERNAMES.id, thisRow, newID);
+  const a = ui.alert(
+    SERVICE_NAME,
+    `Created a New ID for ${name}:\n${newID}`,
+    ui.ButtonSet.OK
+  );
+  if(a === ui.Button.OK) return;
+};
+
+
+const popupSpotifyAuth = async () => {
+  let ui = await SpreadsheetApp.getUi();
+  let htmlOutput = HtmlService.createHtmlOutput(await GetSpotifyService())
+    .setWidth(640)
+    .setHeight(480);
+  ui.showModalDialog(htmlOutput, `${SERVICE_NAME} Connect to Spotify`);
 };
 
 const popupRedirectURI = () => {
@@ -74,6 +122,16 @@ const popupRefreshEvents = async () => {
   ui.alert(
     SERVICE_NAME,
     `Retrieving New Events from Artists List\nTotal : ${count}`,
+    ui.ButtonSet.OK
+  );
+}
+
+const popupRefreshComedyEvents = async () => {
+  const ui = await SpreadsheetApp.getUi();
+  const count = await new TicketmasterFactory().RefreshComedyEvents()
+  ui.alert(
+    SERVICE_NAME,
+    `Retrieving New Comedy Events from List\nTotal : ${count}`,
     ui.ButtonSet.OK
   );
 }

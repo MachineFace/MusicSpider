@@ -5,6 +5,7 @@
  */
 class Common {
   constructor() {
+    
   }
 
   /**
@@ -138,7 +139,6 @@ const _testSleep = () => {
 }
 
 const _testC = () => {
-  const monthNames = [`Jan`, `Feb`, `Mar`, `Apr`, `May`, `June`, `July`, `Aug`, `Jan`, `Feb`, `Sept`, `Oct`, `Mar`, `Nov`, `Dec`, ];
   console.info(Common.UniqueArray(monthNames));
   console.info(`Test 2 is even: ${Common.isEven(2)}`);
   console.info(`Test 2 is odd: ${Common.isOdd(2)}`);

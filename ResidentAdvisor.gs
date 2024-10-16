@@ -72,7 +72,6 @@ class ResidentAdvisorFactory {
     let date = Utilities.formatDate(today, "PST", "yyyy/MM/dd")
     let addTime = new Date(today.setMonth(today.getMonth() + 8));
     let nextYear  = Utilities.formatDate(addTime, "PST", "yyyy/MM/dd");
-    const name = `Four Tet`;
     return {
       "muteHttpExceptions" : true,
       "headers" : {
@@ -222,7 +221,7 @@ class ResidentAdvisorFactory {
    */
   GetArtistList() {
     try {
-      let artists = GetColumnDataByHeader(SHEETS.Artists, ARTISTSHEETHEADERNAMES.artists);
+      let artists = GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
       if (artists.length < 1) throw new Error(`Unable to retrieve a list of artists`);
       return artists;
     } catch(err) {
@@ -269,7 +268,7 @@ class ResidentAdvisorFactory {
       const sheetHeaderNames = SHEETS.Events.getRange(1, 1, 1, SHEETS.Events.getMaxColumns()).getValues()[0];
       let values = [];
       Object.entries(event).forEach(kvp => {
-        const headername = EVENTSHEETHEADERNAMES[kvp[0]];
+        const headername = EVENT_SHEET_HEADERNAMES[kvp[0]];
         const index = sheetHeaderNames.indexOf(headername);
         // console.info(`HEADERNAME: ${headername}, idx: ${index}, KVP: ${kvp[0]}, VALUE: ${kvp[1]}`);
         values[index] = kvp[1];
@@ -295,8 +294,8 @@ class ResidentAdvisorFactory {
       if (lastRow <= 1) throw new Error(`No events found- unable to build array of Events`);
       for (let i = 2; i < lastRow; i++) {
         let rowData = GetRowData(SHEETS.Events, i);
-        let { date } = rowData;
-        events[date] = rowData;
+        let { id } = rowData;
+        events[id] = rowData;
       }
 
       // Sort by key, which is the date
@@ -309,7 +308,7 @@ class ResidentAdvisorFactory {
       );
       return ordered;
     } catch(err) {
-      console.error(`"BuildEventsArray()" failed: ${err}`);
+      console.error(`"GetExistingEvents()" failed: ${err}`);
       return 1;
     }
   }

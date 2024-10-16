@@ -105,7 +105,7 @@ class SpotifyService {
   async RefreshArtists() {
     try {
       const sleepLength = 5;
-      this._ClearData(SHEETS.Artists);    // Clear previous artist list
+      this._ClearArtistData(SHEETS.Artists);    // Clear previous artist list
 
       let artists = [...ARTISTS];
 
@@ -318,7 +318,7 @@ class SpotifyService {
 
     // let artists = [];
     // response?.items.forEach(artist => { 
-    //   if (!artistsToIgnore.includes(artist.name)) {
+    //   if (!ARTISTS_TO_IGNORE.includes(artist.name)) {
     //     artists.push(artist.name);
     //   }
     // });
@@ -354,6 +354,32 @@ class SpotifyService {
   }
 
   /**
+   * Refresh the list of Comedians
+   */
+  async RefreshComedians() {
+    try {
+      this._ClearComedianData(SHEETS.Comedians);    // Clear previous artist list
+      let comedians = [...COMEDIANS];
+      comedians = this._FilterArtists(comedians);
+      if (comedians.length < 1) throw new Error(`Unable to retrieve a list of comedians.`);
+
+      comedians = [...new Set(comedians)].sort();
+      comedians.forEach((comedian, idx) => {
+        SHEETS.Comedians.getRange(2 + idx, 1, 1, 1).setValue(comedian);
+      });
+      SHEETS.Comedians.getRange(2, 1, SHEETS.Comedians.getLastRow(), 1)
+        .setHorizontalAlignment('left');
+
+      console.warn(`Total Comedians: ${comedians.length}`);
+      return comedians.length;
+    } catch(err) {
+      console.error(`RefreshComedians() failed: ${err}`);
+      return 1;
+    }
+  }
+
+  // -------------------------------
+  /**
    * Filter Artists
    * @private
    * @param {[string]} artists
@@ -362,7 +388,7 @@ class SpotifyService {
   _FilterArtists(artists) {
     let filtered = [];
     artists.forEach(artist => {
-      if (!artistsToIgnore.includes(artist)) filtered.push(artist);
+      if (!ARTISTS_TO_IGNORE.includes(artist)) filtered.push(artist);
     });
     return [...new Set(artists)].sort();
   }
@@ -371,10 +397,21 @@ class SpotifyService {
    * Helper Function to clear sheet
    * @private
    */
-  _ClearData () {
+  _ClearArtistData() {
     console.warn(`CLEARING ARTIST SHEET!`);
     SHEETS.Artists
       .getRange(2, 1, SHEETS.Artists.getLastRow() + 1, 1)
+      .clear();
+  }
+
+  /**
+   * Helper Function to clear sheet
+   * @private
+   */
+  _ClearComedianData() {
+    console.warn(`CLEARING ARTIST SHEET!`);
+    SHEETS.Comedians
+      .getRange(2, 1, SHEETS.Comedians.getLastRow() + 1, 1)
       .clear();
   }
 
@@ -384,12 +421,13 @@ class SpotifyService {
  * MAIN CALL
  */
 const refreshArtists = () => new SpotifyService().RefreshArtists();
+const refreshComedians = () => new SpotifyService().RefreshComedians();
 
 /**
  * @private
  */
 const _testSP = async () => {
-  const s = new SpotifyService().GetTopArtists();
+  const s = new SpotifyService().RefreshComedians();
 } 
 
 

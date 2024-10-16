@@ -54,7 +54,7 @@ const GetRowData = (sheet, row) => {
   try {
     let headers = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
     headers.forEach( (name, index) => {
-      const headdict = { ...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES };
+      const headdict = { ...EVENT_SHEET_HEADERNAMES, ...ARTIST_SHEET_HEADERNAMES };
       const linkedKey = Object.keys(headdict).find(key => headdict[key] === name);
       if(!linkedKey) headers[index] = name;
       else headers[index] = linkedKey;
@@ -103,7 +103,7 @@ const SetByHeader = (sheet, columnName, row, val) => {
 };
 
 /**
- * ------------------------------------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------------------------------------------
  * Writes a row of data to a sheet. Input event data and it writes each value to the sheet with matching header name
  * @param {sheet} sheet
  * @param {dict} data 
@@ -115,7 +115,7 @@ const SetRowData = (sheet,data) => {
     let sheetHeaderNames = Object.values(GetRowData(sheet, 1));
     let values = [];
     Object.entries(data).forEach(pair => {
-      let headername = [...EVENTSHEETHEADERNAMES, ...ARTISTSHEETHEADERNAMES][pair[0]];
+      let headername = [...EVENT_SHEET_HEADERNAMES, ...ARTIST_SHEET_HEADERNAMES][pair[0]];
       let index = sheetHeaderNames.indexOf(headername);
       values[index] = pair[1];
     });
@@ -126,7 +126,14 @@ const SetRowData = (sheet,data) => {
   }
 }
 
-
+/**
+ * ----------------------------------------------------------------------------------------------------------------
+ * Search Column for Value
+ * @param {sheet} sheet
+ * @param {string} column name
+ * @param {string} value to look for
+ * @return {number} row number
+ */
 const searchColForValue = (sheet, columnName, val) => {
   if(typeof sheet != `object`) return false;
   try {
@@ -147,7 +154,13 @@ const searchColForValue = (sheet, columnName, val) => {
 }
 
 
-
+/**
+ * ----------------------------------------------------------------------------------------------------------------
+ * Write Array to Column
+ * @param {array} array to write
+ * @param {sheet} sheet
+ * @param {number} column number
+ */
 const WriteArrayToColumn = (array, sheet, col) => {
   array.forEach( (entry, idx) => {
     sheet.getRange(sheet.getLastRow() + 1 + idx, col, 1, 1).setValues(entry);
@@ -156,10 +169,15 @@ const WriteArrayToColumn = (array, sheet, col) => {
 };
 
 
-// Checks if array is all empty values.
+/**
+ * Checks if array is all empty values.
+ */
 const isRowEmpty = (row) => row.filter((value) => value !== '').length === 0;
 
-
+/**
+ * Delete Empty Rows
+ * @param {sheet} sheet
+ */
 const deleteEmptyRows = (sheet) => {
   try {
     sheet = sheet ? sheet : SpreadsheetApp.getActiveSheet();
@@ -199,8 +217,10 @@ const deleteEmptyRows = (sheet) => {
   }
 }
 
+
+
 /**
- * 
+ * Add Array to Sheet
  * @NOTIMPLEMENTED
 const addArrayToSheet = (sheet, column, values) => {
   const range = [column, `1:`, column, values.length]

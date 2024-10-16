@@ -257,7 +257,7 @@ const Xor = (a, b) => a ? !b : b;
 /**
  * Informational Functions
  */
-class Test {
+class Evaluate {
   constructor() {
 
   }

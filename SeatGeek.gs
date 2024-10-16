@@ -218,7 +218,7 @@ class SeatGeekFactory {
    */
   GetArtistList() {
     try {
-      let artists = GetColumnDataByHeader(SHEETS.Artists, ARTISTSHEETHEADERNAMES.artists);
+      let artists = GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
       if (artists.length < 1) throw new Error(`Unable to retrieve a list of artists`);
       return artists;
     } catch(err) {
@@ -253,7 +253,7 @@ class SeatGeekFactory {
       );
       return ordered;
     } catch(err) {
-      console.error(`"BuildEventsArray()" failed: ${err}`);
+      console.error(`"GetExistingEvents()" failed: ${err}`);
       return 1;
     }
   }
@@ -268,7 +268,7 @@ class SeatGeekFactory {
       const sheetHeaderNames = SHEETS.Events.getRange(1, 1, 1, SHEETS.Events.getMaxColumns()).getValues()[0];
       let values = [];
       Object.entries(event).forEach(kvp => {
-        const headername = EVENTSHEETHEADERNAMES[kvp[0]];
+        const headername = EVENT_SHEET_HEADERNAMES[kvp[0]];
         const index = sheetHeaderNames.indexOf(headername);
         // console.info(`HEADERNAME: ${headername}, idx: ${index}, KVP: ${kvp[0]}, VALUE: ${kvp[1]}`);
         values[index] = kvp[1];
@@ -285,7 +285,7 @@ class SeatGeekFactory {
 
 const _testSeatGeek = async () => {
   const sf = new SeatGeekFactory();
-  await sf.SearchAllArtists();
+  await sf.Main();
 } 
 
 

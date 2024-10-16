@@ -5,11 +5,25 @@ const SUPPORT_ALIAS = GmailApp.getAliases()[0];
 const monthNames = [`Jan`, `Feb`, `Mar`, `Apr`, `May`, `June`, `July`, `Aug`, `Sept`, `Oct`, `Nov`, `Dec`, ];
 const dayNames = [`Sun`, `Mon`, `Tues`, `Wed`, `Thur`, `Fri`, `Sat`];
 
-const ARTISTSHEETHEADERNAMES = Object.freeze({
+/**
+ * Artist Sheet Headernames
+ */
+const ARTIST_SHEET_HEADERNAMES = Object.freeze({
   artists : `Artist`,	
 });
 
-const EVENTSHEETHEADERNAMES = Object.freeze({
+/**
+ * Comedian Sheet Headernames
+ */
+const COMEDIAN_SHEET_HEADERNAMES = Object.freeze({
+  comedian : `Comedian`,	
+});
+
+/**
+ * 
+ */
+const EVENT_SHEET_HEADERNAMES = Object.freeze({
+  id : `ID`,
   title : `Event Title`,	
   venue : `Venue`,	
   city : `City`,	
@@ -20,11 +34,20 @@ const EVENTSHEETHEADERNAMES = Object.freeze({
   address : `Address`,																		
 });
 
+/**
+ * Sheets
+ */
 const SHEETS = Object.freeze({
-  Artists : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Artists`),
   Events :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Events`),
+  ComedyEvents :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`ComedyEvents`),
+  Artists : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Artists`),
+  Comedians :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Comedians`),
+  Logger :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Logger`),
 });
 
+/**
+ * Responses
+ */
 const RESPONSECODES = Object.freeze({
 	200 : `OK`,
 	201 : `Created`,
@@ -94,9 +117,11 @@ const RESPONSECODES = Object.freeze({
 	599 : `Network connect timeout error`,
 });
 
+/**
+ * Artists
+ */
 const ARTISTS = [
   `1200 Micrograms`,
-  `4TLR`,
   `65daysofstatic`,
   `A Silver Mt. Zion`,
   `A Tribe Called Quest`,
@@ -296,7 +321,7 @@ const ARTISTS = [
   `Doc Daneeka`,
   `Does It Offend You, Yeah`,
   `Domo Genesis`,
-  `Dr. Dooom`,
+  `Dr. Doom`,
   `Dr. Dre`,
   `Dr. Octagon`,
   `Dropkick Murphys`,
@@ -911,6 +936,141 @@ const ARTISTS = [
   `･ ･－･ ･－ ･･･ ･ －･･`,
 ];
 
+/**
+ * Artists that should be ignored because they're long deceased, or you're not interested in their concert, or they fucking suck balls, etc.
+ */
+const ARTISTS_TO_IGNORE = [
+  `214`,
+  `Abner Jay`,
+  `Alice Coltrane`,
+  `Ali Farka Touré`,
+  `Amadou (Amadou & Mariam)`,
+  `Ananda Shankar`,
+  `Billie Holiday`,
+  `Beck`,
+  `Ben Folds`,
+  `Bruce Brubaker`,
+  `BT`,
+  `Charles Bradley`,
+  `Cesaria Evora`,
+  `David Bowie`,
+  `Elliott Smith`,
+  `Eurythmics`,
+  `Fela Kuti`,
+  `Gil Scott-Heron`,
+  `Green Day`,
+  `Harold Budd`,
+  `Isaac Hayes`,
+  `J Dilla`,
+  `Johnny Fortune`,
+  `Lee "Scratch" Perry`,
+  `Lightnin' Hopkins`,
+  `Lou Reed`,
+  `Mad Professor & Lee "Scratch" Perry`,
+  `Miles Davis`,
+  `Offspring`,
+  `Otis Redding`,
+  `Patti Smith`,
+  `Ravi Shankar`,
+  `Rob Lewis`,
+  `Roky Erickson`,
+  `Sun Ra`,
+  `Sylvain Chauveau`,
+  `Daft Punk`,
+  `The Beatles`,
+  `The Velvet Underground`,
+  `Led Zeppelin`,
+  `Weezer`,
+];
+
+/**
+ * Comedians
+ */
+const COMEDIANS = [
+  `Adam Devine`,
+  `Adam Ray`,
+  `Al Madrigal`,
+  `Ali Siddiq`,
+  `Andrew Santino`,
+  `Anthony Jeselnik`,
+  `Aziz Ansari`,
+  `Bill Burr`,
+  `Bert Kreischer`,
+  `Bo Burnham`,
+  `Bobby Lee`,
+  `Brian Regan`,
+  `Brian Simpson`,
+  `Chris D'Elia`,
+  `Chris DiStefano`,
+  `Chris Rock`,
+  `Christina P.`,
+  `Craig Ferguson`,
+  `Dan Soder`,
+  `Dana Carvey`,
+  `Dane Cook`,
+  `Dave Attell`,
+  `Dave Chappelle`,
+  `David Cross`,
+  `David Spade`,
+  `Donald Glover`,
+  `Donnell Rawlings`,
+  `Doug Stanhope`,
+  `Eric Andre`,
+  `Fortune Feimster`,
+  `Fred Armisen`,
+  `Hannibal Buress`,
+  `Kyle Kinane`,
+  `Kumail Nanjiani`,
+  `Kevin Hart`,
+  `Jerry Seinfeld`,
+  `Jim Gaffigan`,
+  `Jim Jefferies`,
+  `Jimmy Carr`,
+  `Jo Koy`,
+  `Joey Diaz`,
+  `John Mulaney`,
+  `Louis Black`,
+  `Louis C.K.`,
+  `Marc Maron`,
+  `Maria Bamford`,
+  `Mark Normand`,
+  `Matt Rife`,
+  `Michael Che`,
+  `Michelle Wolf`,
+  `Moshe Kasher`,
+  `Ms. Pat`,
+  `Nate Bargatze`,
+  `Neal Brennan`,
+  `Nick Kroll`,
+  `Patton Oswalt`,
+  `Pete Davidson`,
+  `Pete Holmes`,
+  `Reggie Watts`,
+  `Ricky Gervais`,
+  `Rory Scovel`,
+  `Ron White`,
+  `Sam Morril`,
+  `Sarah Silverman`,
+  `Sebastian Maniscalco`,
+  `Shane Gillis`,
+  `Steve Martin`,
+  `Steven Merchant`,
+  `Taylor Tomlinson`,
+  `Theo Von`,
+  `Tim Dillon`,
+  `Tom Papa`,
+  `Tom Segura`,
+  `Tony Hinchliffe`,
+  `Tracy Morgan`,
+  `Trevor Noah`,
+  `W. Kamau Bell`,
+  `Whitney Cummings`,
+  `Zach Galifianakis`,
+];
+
+/**
+ * RA Regions
+ */
 const RESIDENT_ADVISOR_REGIONS = Object.freeze({
   7 : undefined,
   8 : `New York`,
