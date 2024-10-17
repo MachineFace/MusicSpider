@@ -411,21 +411,40 @@ class Evaluate {
 
 /**
  * Extract City From Address
- * @param {string} address
+ * @param {string} address form:(`123 Main St, Springfield, IL 12345`)
  * @return {string} city
  */
-const ExtractCityFromAddress = (address = `123 Main St, Springfield, IL 12345`) => {
-  address = address != null && address != undefined ? address : `123 Main St, San Francisco, CA 94606`;
-  const regex = /,\s*([^,]+),\s*([A-Z]{2})\s*\d{5}$/;
-  const match = address.match(regex);
-  if (match && match[1]) return match[1].trim();
-  else return RESIDENT_ADVISOR_REGIONS[218];
+const ExtractCityFromAddress = (address) => {
+  try {
+    let match = [];
+    address = address ? address : `123 Main St, San Francisco, CA 12345`;
+    const cityPattern1 = /,\s*([^,]+),\s*([A-Z]{2})\s*\d{5}$/;
+    const cityPattern2 = /([\w\s\.\-]+),\s?(\d{5})\s([\w\s\-]+),\s([\w\s]+)/;
+    const cityPattern3 = /(?:\d{5}|\d{4}|\d{3,6})\s+([a-zA-Z\u00C0-\u017F\s\-]+)(?:,\s?[a-zA-Z\s]+)?$/;
+    const cityPattern4 = /(\d+)\s([\w\s]+);\s([\w\s]+),\s([A-Z]{1,2}\d[A-Z\d]?\s\d[A-Z]{2});\s([\w\s]+);\s([\w\s]+)$/
+    const cityPattern5 = /([\w\s]+),\s([\w\s\d]+);\s([\w\s]+);\s([\w\s]+)$/
+    match = address.match(cityPattern1);
+    if(!match) match = address.match(cityPattern2);
+    if(!match) match = address.match(cityPattern3);
+    if(!match) match = address.match(cityPattern4);
+    if(!match) match = address.match(cityPattern5);
+    else if(!match) match = [ RESIDENT_ADVISOR_REGIONS[218] ];
+    const matchLength = match.length != null ? match.length : 2;
+    const city = match[matchLength - 2];
+    console.info(`CITY: ${city}`);
+    return city;
+  } catch(err) {
+    console.error(`"ExtractCityFromAddress()" failed: ${err}`);
+    return RESIDENT_ADVISOR_REGIONS[218];
+  }
 }
 
-
-const _testS = () => {
-  const s = StringOperations.Trim(`  asldkfj.   `);
-  console.info(s);
+const _testMatch = () => {
+  ExtractCityFromAddress(`123 Main St, Springfield, IL 12345`);
+  ExtractCityFromAddress(`Skalitzer str. 114, 10999 Berlin, Germany`);
+  ExtractCityFromAddress(`539 39th st. #423, Oakland, CA 94606`);
+  ExtractCityFromAddress(`22 Jamaica St; Glasgow, G1 4QD; Scotland; United Kingdom`);
+  ExtractCityFromAddress(`De Ruyterkade, Pier 14; Binnenstad Amsterdam; Netherlands`);
 }
 
 

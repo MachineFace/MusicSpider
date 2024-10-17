@@ -44,8 +44,8 @@ class TicketmasterFactory {
   _DoParse(artists = [], outputSheet = SHEETS.Events, ) {
     const cal = new CalendarService();
     if(artists.length < 1) return;
-    // artists = [ artists[1], artists[2], artists[3],]
     artists.forEach(async (artist) => {      
+      if(ARTISTS_TO_IGNORE.includes(artist)) return;
       await this.ParseResults(artist)
         .then(data => {
           if(!data) return;
@@ -67,7 +67,6 @@ class TicketmasterFactory {
             this.WriteEventToSheet(outputSheet, event);   // Write to Sheet
             cal.CreateCalendarEvent(event);  // Write Calendar Event for new events
           });
-          
         });
     });
   }
@@ -76,7 +75,6 @@ class TicketmasterFactory {
    * Write Single Event To Sheet
    */
   WriteEventToSheet(sheet = SHEETS.Events, event = {}) {
-    console.info(`Writing Event to Sheet..`);
     try {
       const sheetHeaderNames = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
       let values = [];

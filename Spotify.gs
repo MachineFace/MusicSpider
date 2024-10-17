@@ -89,7 +89,6 @@ class SpotifyService {
         const responseCode = response.getResponseCode();
         if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
         data.push(JSON.parse(response.getContentText()));
-
       }
       const parsed = data.flat();
       return parsed;
@@ -144,7 +143,9 @@ class SpotifyService {
       artists = this._FilterArtists(artists);
       if(artists) console.warn(`Total Artists: ${artists.length}`);
 
-      this._WriteArtistsToSheet(artists);    // Write new artists to sheet
+      artists.forEach((artist, idx) => {
+        SHEETS.Artists.getRange(2 + idx, 1, 1, 1).setValue(artist);
+      });
       SHEETS.Artists.getRange(2, 1, SHEETS.Artists.getLastRow(), 1)
         .setHorizontalAlignment('left');
       return artists.length;
@@ -154,16 +155,6 @@ class SpotifyService {
     }
   }
 
-  /**
-   * Write Artists to Sheet
-   * @private
-   * @param {array} artist names
-   */
-  _WriteArtistsToSheet(array) {
-    array.forEach((artist, idx) => {
-      SHEETS.Artists.getRange(2 + idx, 1, 1, 1).setValue(artist);
-    });
-  };
 
   /**
    * Returns an array of all artists from Saved Tracks on Spotify
@@ -172,11 +163,10 @@ class SpotifyService {
    * interested in seeing live ;)
    */
   async GetSavedTracksArtists() {
-    console.info(`Getting Saved Tracks Artists....`);
-    const savedTracksUrl = `${this.profileUrl}/tracks`;
-    const params = "?limit=50";
     try {
-      const data = await this._GetData(savedTracksUrl + params);
+      console.info(`Getting Saved Tracks Artists....`);
+      const url = `${this.profileUrl}/tracks` + `?limit=50`;
+      const data = await this._GetData(url);
       let artists = [];
       data.forEach(entry => {
         entry.items.forEach(item => {
@@ -188,6 +178,7 @@ class SpotifyService {
       return filteredArtists;
     } catch(err) {
       console.error(`"GetSavedTracksArtists()" failed: ${err}`);
+      return [];
     }
   }
 
@@ -196,21 +187,24 @@ class SpotifyService {
    * Get Followed Artists
    */
   async GetFollowedArtists() {
-    console.info(`Getting Followed Artists...`);
-    const followUrl = `${this.profileUrl}/following`;
-    const params = "?type=artist&limit=50";
-    const data = await this._GetData(followUrl + params);
-
-    let artists = [];
-    data?.forEach(entry => {
-      if(entry) {
-        const items = entry?.artists?.items;
-        if(items) items.forEach(item => artists.push(item.name));
-      }
-    })
-    artists = [...new Set(artists)].sort();
-    console.warn(`Number of Followed Artists: ${artists.length}`);
-    return artists;
+    try {
+      console.info(`Getting Followed Artists...`);
+      const url = `${this.profileUrl}/following` + `?type=artist&limit=50`;
+      const data = await this._GetData(url);
+      let artists = [];
+      data?.forEach(entry => {
+        if(entry) {
+          const items = entry?.artists?.items;
+          if(items) items.forEach(item => artists.push(item.name));
+        }
+      })
+      artists = [...new Set(artists)].sort();
+      console.warn(`Number of Followed Artists: ${artists.length}`);
+      return artists;
+    } catch(err) {
+      console.error(`"GetFollowedArtists()" failed: ${err}`);
+      return [];
+    }
   }
 
 
@@ -225,8 +219,7 @@ class SpotifyService {
       return 1;
     }
     console.info(`Getting artists from playlists....`);
-    const playlistUrl = `${this.baseUrl}/playlists`;
-    const url = playlistUrl + "/" + this.playlistId + "/tracks";
+    const url = `${this.baseUrl}/playlists` + "/" + this.playlistId + "/tracks";
 
     const options = {
       "method": "GET",
@@ -238,7 +231,7 @@ class SpotifyService {
     };
 
     try {
-      let data;
+      let data = {};
       const response = await UrlFetchApp.fetch(url, options);
       const responseCode = response.getResponseCode();
       if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
@@ -331,11 +324,10 @@ class SpotifyService {
    * @return {[string]} artists
    */
   async GetSavedAlbums() {
-    console.info(`Getting Saved Albums....`);
-    const savedAlbumsUrl = `${this.profileUrl}/albums`;
-    const params = "?limit=50";
     try {
-      const data = await this._GetData(savedAlbumsUrl + params);
+      console.info(`Getting Saved Albums....`);
+      const url = `${this.profileUrl}/albums` + `?limit=50`;
+      const data = await this._GetData(url);
 
       let artists = [];
       data.forEach(entry => {
@@ -365,7 +357,8 @@ class SpotifyService {
 
       comedians = [...new Set(comedians)].sort();
       comedians.forEach((comedian, idx) => {
-        SHEETS.Comedians.getRange(2 + idx, 1, 1, 1).setValue(comedian);
+        SHEETS.Comedians.getRange(2 + idx, 1, 1, 1)
+          .setValue(comedian);
       });
       SHEETS.Comedians.getRange(2, 1, SHEETS.Comedians.getLastRow(), 1)
         .setHorizontalAlignment('left');
@@ -409,7 +402,7 @@ class SpotifyService {
    * @private
    */
   _ClearComedianData() {
-    console.warn(`CLEARING ARTIST SHEET!`);
+    console.warn(`CLEARING COMEDIAN SHEET!`);
     SHEETS.Comedians
       .getRange(2, 1, SHEETS.Comedians.getLastRow() + 1, 1)
       .clear();

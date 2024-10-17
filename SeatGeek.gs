@@ -20,11 +20,9 @@ class SeatGeekFactory {
     /** @private */
     this.clientSecret = PropertiesService.getScriptProperties().getProperty(`SEATGEEK_CLIENT_SECRET`);
     /** @private */
-    this.latlong = PropertiesService.getScriptProperties().getProperty(`LATLONG`);
-    /** @private */
-    this.latitude = this.latlong.split(',')[0];
+    this.latitude = PropertiesService.getScriptProperties().getProperty(`LATITUDE`);
     /** @private */ 
-    this.longitude = this.latlong.split(',')[1]; 
+    this.longitude = PropertiesService.getScriptProperties().getProperty(`LONGITUDE`); 
     /** @private */
     this.radius = PropertiesService.getScriptProperties().getProperty(`RADIUS`);
     /** @private */
@@ -52,15 +50,15 @@ class SeatGeekFactory {
       let url = `${this.eventsUrl}?${authString}&lat=${this.latitude}&lon=${this.longitude}&range=${this.radius}${this.units}&per_page=${pageSize}&page=${page}`; 
 
       const response = await UrlFetchApp.fetch(url, options);
-      const firstPage = await response.getContentText();
       const responseCode = await response.getResponseCode();
-
       if (responseCode != 200 && responseCode != 201) throw new Error(`Response Code ${responseCode} - ${RESPONSECODES[responseCode]}`);
-
+      
+      const firstPage = await response.getContentText();
       const data = await JSON.parse(firstPage);
+
       const totalResults = data?.meta?.total;
-      console.info(`Total: ${totalResults}`);
-      if (totalResults == 0) {
+      console.info(`TOTAL: ${totalResults}`);
+      if (totalResults < 1) {
         console.warn(`_GetData(): No results for ${keyword}`);
         return [];
       }
@@ -86,7 +84,7 @@ class SeatGeekFactory {
       return results;
     } catch (err) {
       console.error(`_GetData() failed: ${err}`);
-      return 1;
+      return [];
     }
   }
 

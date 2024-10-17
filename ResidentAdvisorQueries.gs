@@ -9,32 +9,26 @@ const RA_QUERY_EVENT_LISTINGS = `query GET_EVENT_LISTINGS($filters: FilterInputD
     data {
       id 
       event {
-        ...eventListingsFields artists {id name __typename} 
+        date 
+        startTime 
+        endTime 
+        title
+        contentUrl 
+        attending
+        images {
+          id 
+          filename 
+        } 
+        venue {
+          id 
+          name 
+          address
+          contentUrl 
+        } 
       } 
     } 
-    filterOptions {
-      genre {label value __typename}
-    } 
     totalResults 
-    }
   }
-  fragment eventListingsFields on Event {
-    date 
-    startTime 
-    endTime 
-    title 
-    contentUrl 
-    attending 
-    images {
-      id 
-      filename 
-    } 
-    venue {
-      id 
-      name 
-      address
-      contentUrl 
-    } 
 }`;
 
 const RA_QUERY_POPULAR_EVENTS = `query GET_POPULAR_EVENTS($filters: FilterInputDtoInput, $pageSize: Int) { 
@@ -43,42 +37,29 @@ const RA_QUERY_POPULAR_EVENTS = `query GET_POPULAR_EVENTS($filters: FilterInputD
       data {     
         id     
         listingDate     
-        event {       
-          ...eventFields artists {id name __typename}        
-          __typename     
+        event {
+          id 
+          title 
+          date 
+          contentUrl 
+          flyerFront 
+          images {   
+            id   
+            filename   
+            alt   
+            type   
+          } 
+          venue {  
+            id   
+            name  
+            address 
+            contentUrl  
+          }       
         }     
-        __typename   
       }
       totalResults    
-      __typename 
     }
   }
-  fragment eventFields on Event { 
-    id 
-    title 
-    attending 
-    date 
-    contentUrl 
-    flyerFront 
-    queueItEnabled 
-    newEventForm 
-    images {   
-      id   
-      filename   
-      alt   
-      type   
-      crop   
-      __typename 
-      } 
-    venue {  
-      id   
-      name  
-      address 
-      contentUrl  
-      live    
-      __typename 
-    }
-    __typename 
 }`;
 
 const RA_QUERY_ENUMERATE = `query IntrospectionQuery {
@@ -87,84 +68,31 @@ const RA_QUERY_ENUMERATE = `query IntrospectionQuery {
     mutationType { name }
     subscriptionType { name }
     types {
-      ...FullType
+      kind
+      name
+      description
+      fields(includeDeprecated: true) {
+        name
+        description
+        args {
+          name
+          description
+          defaultValue
+        }
+        isDeprecated
+        deprecationReason
+      }
+      enumValues(includeDeprecated: true) {
+        name
+        description
+        isDeprecated
+        deprecationReason
+      }
     }
     directives {
       name
       description
       locations
-      args {
-      ...InputValue
-      }
-    }
-  }
-  fragment FullType on __Type {
-    kind
-    name
-    description
-    fields(includeDeprecated: true) {
-      name
-      description
-      args {
-        ...InputValue
-      }
-      type {
-        ...TypeRef
-      }
-      isDeprecated
-      deprecationReason
-    }
-    inputFields {
-      ...InputValue
-    }
-    interfaces {
-      ...TypeRef
-    }
-    enumValues(includeDeprecated: true) {
-      name
-      description
-      isDeprecated
-      deprecationReason
-    }
-    possibleTypes {
-      ...TypeRef
-    }
-  }
-  fragment InputValue on __InputValue {
-    name
-    description
-    type { ...TypeRef }
-    defaultValue
-  }
-  fragment TypeRef on __Type {
-    kind
-    name
-    ofType {
-      kind
-      name
-      ofType {
-        kind
-        name
-        ofType {
-          kind
-          name
-          ofType {
-            kind
-            name
-            ofType {
-              kind
-              name
-              ofType {
-                kind
-                name
-                ofType {
-                  kind
-                  name
-                }
-              }
-          }
-        }
-      }
     }
   }
 }`;
@@ -175,66 +103,21 @@ const RA_QUERY_SCHEMA = `fragment FullType on __Type {
   fields(includeDeprecated: true) {
     name
     args {
-      ...InputValue
+      name
+      defaultValue
     }
-    type {
-      ...TypeRef
+    isDeprecated {
+      deprecationReason
     }
-    isDeprecated
-    deprecationReason
   }
   inputFields {
-    ...InputValue
-  }
-  interfaces {
-    ...TypeRef
+    name
+    defaultValue
   }
   enumValues(includeDeprecated: true) {
     name
-    isDeprecated
-    deprecationReason
-  }
-  possibleTypes {
-    ...TypeRef
-  }
-  }
-  fragment InputValue on __InputValue {
-    name
-    type {
-      ...TypeRef
-    }
-    defaultValue
-  }
-  fragment TypeRef on __Type {
-    kind
-    name
-    ofType {
-      kind
-      name
-      ofType {
-        kind
-        name
-        ofType {
-          kind
-          name
-          ofType {
-            kind
-            name
-            ofType {
-              kind
-              name
-              ofType {
-                kind
-                name
-                ofType {
-                  kind
-                  name
-                }
-              }
-            }
-          }
-        }
-      }
+    isDeprecated {
+      deprecationReason
     }
   }
   query IntrospectionQuery {
@@ -245,15 +128,9 @@ const RA_QUERY_SCHEMA = `fragment FullType on __Type {
       mutationType {
         name
       }
-      types {
-        ...FullType
-      }
       directives {
         name
         locations
-        args {
-          ...InputValue
-        }
       }
     }
 }`;
@@ -296,45 +173,27 @@ const RA_QUERY_TEST = `query GET_EVENTS($filters: FilterInputDtoInput, $pageSize
         id
         listingDate
         event {
-          ...eventFields  
-          __typename 
+          id 
+          title 
+          date 
+          contentUrl 
+          flyerFront 
+          images {   
+            id   
+            filename   
+            alt   
+          } 
+          venue {  
+            id   
+            name   
+            address
+            contentUrl  
+          }
         }     
-        __typename   
       }   
-      __typename 
     }
-  }
-  fragment eventFields on Event { 
-    id 
-    title 
-    attending 
-    date 
-    contentUrl 
-    flyerFront 
-    queueItEnabled 
-    newEventForm 
-    images {   
-      id   
-      filename   
-      alt   
-      type   
-      crop   
-      __typename 
-    } 
-    venue {  
-      id   
-      name   
-      address
-      contentUrl  
-      live    
-      __typename 
-    }
-    __typename 
   }
 }`;
     
-
-
-
 
 
