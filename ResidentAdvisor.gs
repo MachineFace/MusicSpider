@@ -15,38 +15,6 @@ class ResidentAdvisorFactory {
   }
 
   /**
-   * @private
-   */
-  _BuildQuery(pageSize = 18, page = 1) {
-    return `query GET_EVENT_LISTINGS($filters: FilterInputDtoInput, $filterOptions: FilterOptionsInputDtoInput, $page: Int, $pageSize: Int) {
-      eventListings(filters: $filters, filterOptions: $filterOptions, pageSize: ${pageSize}, page: ${page}) {
-        data {
-          id 
-          event {
-            date 
-            startTime 
-            endTime 
-            title 
-            contentUrl 
-            attending 
-            images {
-              id 
-              filename 
-            } 
-            venue {
-              id 
-              name 
-              address
-              contentUrl 
-            } 
-          } 
-        } 
-        totalResults 
-      }
-    }`;
-  }
-
-  /**
    * Get Payload
    * @private
    */
@@ -82,7 +50,7 @@ class ResidentAdvisorFactory {
    * @private
    * @returns {array} results [{eventdata}, {eventdata}...]
    */
-  async GetData() {
+  async GetData(query = RA_QUERY_EVENT_LISTINGS) {
     try { 
       let results = [];
       let totalResults = 0;
@@ -96,7 +64,7 @@ class ResidentAdvisorFactory {
           'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
           // 'referer' : 'https://ra.co/events/us/bayarea',
         },
-        payload : this._GetPayload(1, RA_QUERY_EVENT_LISTINGS),
+        payload : this._GetPayload(1, query),
       };
       
       const response = await UrlFetchApp.fetch(this.url, options);
@@ -113,8 +81,7 @@ class ResidentAdvisorFactory {
       let pageLimit = Math.ceil(totalResults / this.pageSize);
 
       for(let page = 2; page <= pageLimit; page++) {
-        options.payload = this._GetPayload(page, RA_QUERY_EVENT_LISTINGS)
-        // const options = this._GetOptions(page, RA_QUERY_EVENT_LISTINGS);
+        options.payload = this._GetPayload(page, query)
         const nextPage = await UrlFetchApp.fetch(this.url, options).getContentText();
         let parsed = {};
         if(nextPage) parsed = JSON.parse(nextPage);
@@ -135,7 +102,7 @@ class ResidentAdvisorFactory {
   async ParseResults() {
     try {
       let results = {};
-      const listings = await this.GetData();
+      const listings = await this.GetData(RA_QUERY_EVENT_LISTINGS);
       listings.forEach(listing => {
         const event = listing?.event;
         if(!event) return;
@@ -232,13 +199,17 @@ class ResidentAdvisorFactory {
    * Get Artist List
    * @private
    */
-  GetArtistList() {
+  _GetArtistList() {
     try {
       let artists = GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
       if (artists.length < 1) throw new Error(`Unable to retrieve a list of artists`);
-      return artists;
+      let filtered = [];
+      artists.forEach(artist => {
+        if (!ARTISTS_TO_IGNORE.includes(artist)) filtered.push(artist);
+      });
+      return [...new Set(filtered)].sort();
     } catch(err) {
-      console.error(`'GetArtistList()' failed : ${err}`);
+      console.error(`"_GetArtistList()" failed : ${err}`);
       return 1;
     }
   }
@@ -325,8 +296,10 @@ class ResidentAdvisorFactory {
 
 const _testRA = () => {
   const ra = new ResidentAdvisorFactory();
-  ra.Main();
+  // ra.Main();
   // ra.GetExistingEvents();
+  let artists = ra._GetArtistList();
+  artists.forEach(a => console.info(a));
 }
 
 

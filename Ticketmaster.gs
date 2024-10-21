@@ -182,10 +182,10 @@ class TicketmasterFactory {
       console.info(`Searching Ticketmaster for ${keyword}`);
       const url = `${this.ticketmasterUrl}?apikey=${this.ticketmasterID}&latlong=${this.latlong}&radius=${this.radius}&unit=${this.units}&keyword=${encodeURI(keyword)}`;
       const options = {
-        "method" : "GET",
-        "async" : true,
-        "contentType" : "application/json",
-        "muteHttpExceptions" : false,
+        method : "GET",
+        async : true,
+        contentType : "application/json",
+        muteHttpExceptions : false,
       };
       Sleep(500);       // Wait a sec
       const response = await UrlFetchApp.fetch(url, options);

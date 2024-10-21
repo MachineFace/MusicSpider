@@ -12,7 +12,7 @@
 class SeatGeekFactory {
   constructor() {
     /** @private */
-    this.url = `https://api.seatgeek.com/2`;
+    this.url = `https://api.seatgeek.com/`;
     /** @private */
     this.eventsUrl = `${this.url}/events`;
     /** @private */
@@ -40,11 +40,12 @@ class SeatGeekFactory {
       const authString = `client_id=${this.clientID}&client_secret=${this.clientSecret}&`;
 
       const options = {
-        'contentType': 'application/json',
-        'headers': {
-          'Access-Control-Allow-Origin': '*',
+        method : "GET",
+        headers : {
+          "Access-Control-Allow-Origin" : '*',
+          "ContentType" : 'application/json',
         },
-        "muteHttpExceptions": true,
+        muteHttpExceptions : true,
       };
       
       let url = `${this.eventsUrl}?${authString}&lat=${this.latitude}&lon=${this.longitude}&range=${this.radius}${this.units}&per_page=${pageSize}&page=${page}`; 
@@ -58,14 +59,10 @@ class SeatGeekFactory {
 
       const totalResults = data?.meta?.total;
       console.info(`TOTAL: ${totalResults}`);
-      if (totalResults < 1) {
-        console.warn(`_GetData(): No results for ${keyword}`);
-        return [];
-      }
-      let results = [];
-      results.push(...await data?.events);
-      const pages = Math.ceil(totalResults / pageSize);
+      if (totalResults < 1) throw new Error(`_GetData(): No results for ${keyword}`);
+      let results = [...await data?.events];
   
+      const pages = Math.ceil(totalResults / pageSize);
       let running = pageSize;
       for (let pg = 2; pg <= pages; pg++) {
         let pgSize = pageSize;
@@ -77,8 +74,9 @@ class SeatGeekFactory {
 
         nextPage = await UrlFetchApp.fetch(url, options).getContentText();
         let nextPageParsed = await JSON.parse(nextPage).events;
-        let newEvents = nextPageParsed?.data?.events;
-        results.push(...nextPageParsed);
+        console.info(nextPageParsed);
+        // let newEvents = nextPageParsed?.data?.events;
+        // results.push(...nextPageParsed);
       }
       // Log.Info("getSeatGeekData() results", results);
       return results;
@@ -95,17 +93,13 @@ class SeatGeekFactory {
    */
   async KeywordSearch(keyword = `Four Tet`) {
     try {
-      const artistList = this.GetArtistList();
+      const artistList = this._GetArtistList();
 
       let results = [];
       await this._GetData(keyword)
         .then(async(data) => {
-
+          if (data.length == 0) throw new Error(`No results for ${keyword}`);
           console.info(`${data.length} results parsed`);
-          if (data.length == 0) {
-            console.warn(`No results for ${keyword}`);
-            return [];
-          }
           for (let i = 0; i < data.length; i++) {
             const event = data[i];
             const title = event?.title;
@@ -160,7 +154,7 @@ class SeatGeekFactory {
   }
 
   async SearchAllArtists(artists = []) {
-    artists = artists ? artists : this.GetArtistList();
+    artists = artists ? artists : this._GetArtistList();
     try {
       let events = [];
       artists.forEach(async(artist) => {
@@ -183,11 +177,13 @@ class SeatGeekFactory {
     }
   }
 
-  async Main(artists = []) {
+  async Main() {
     try {
       let events = [];
+      const artists = [...this._GetArtistList()];
       artists.forEach(async (artist) => {
         await this.KeywordSearch(artist).then(data => {
+          console.info(data);
           for (let i = 0; i < data.length; i++) {
             events.push({
               date: data[i].date,
@@ -214,13 +210,17 @@ class SeatGeekFactory {
    * Get Artist List
    * @private
    */
-  GetArtistList() {
+  _GetArtistList() {
     try {
       let artists = GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
       if (artists.length < 1) throw new Error(`Unable to retrieve a list of artists`);
-      return artists;
+      let filtered = [];
+      artists.forEach(artist => {
+        if (!ARTISTS_TO_IGNORE.includes(artist)) filtered.push(artist);
+      });
+      return [...new Set(filtered)].sort();
     } catch(err) {
-      console.error(`'GetArtistList()' failed : ${err}`);
+      console.error(`"_GetArtistList()" failed : ${err}`);
       return 1;
     }
   }
@@ -229,7 +229,7 @@ class SeatGeekFactory {
    * Build an Array of Events
    * @private
    */
-  GetExistingEvents() {
+  _GetExistingEvents() {
     try {
       let lastRow = SHEETS.Events.getLastRow();
       let events = [];
@@ -251,7 +251,7 @@ class SeatGeekFactory {
       );
       return ordered;
     } catch(err) {
-      console.error(`"GetExistingEvents()" failed: ${err}`);
+      console.error(`"_GetExistingEvents()" failed: ${err}`);
       return 1;
     }
   }

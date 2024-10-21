@@ -63,7 +63,7 @@ const popupCreateNewID = () => {
     );
     if(a === ui.Button.OK) return;
   } 
-  const { name, id } = GetRowData(thisSheet, thisRow);
+  const { name, id } = SheetService.GetRowData(thisSheet, thisRow);
   if(IDService.isValid(id)) {
     const a = ui.alert(
       `${SERVICE_NAME}: Error!`,
@@ -72,7 +72,7 @@ const popupCreateNewID = () => {
     );
     if(a === ui.Button.OK) return;
   }
-  SetByHeader(thisSheet, HEADERNAMES.id, thisRow, newID);
+  SheetService.SetByHeader(thisSheet, HEADERNAMES.id, thisRow, newID);
   const a = ui.alert(
     SERVICE_NAME,
     `Created a New ID for ${name}:\n${newID}`,

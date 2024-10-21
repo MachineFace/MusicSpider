@@ -222,12 +222,12 @@ class SpotifyService {
     const url = `${this.baseUrl}/playlists` + "/" + this.playlistId + "/tracks";
 
     const options = {
-      "method": "GET",
-      "headers" : {
+      method : "GET",
+      headers : {
         "Authorization" : "Bearer " + this.service.getAccessToken(),
         "Content-Type" : "application/json",
       },
-      "muteHttpExceptions" : false,
+      muteHttpExceptions : false,
     };
 
     try {
@@ -268,12 +268,12 @@ class SpotifyService {
     const topArtistsUrl = `${this.profileUrl}/top/artists`;
 
     const options = {
-      "method": "GET",
-      "headers" : {
+      method : "GET",
+      headers : {
         "Authorization" : "Bearer " + this.service.getAccessToken(),
         "Content-Type" : "application/json",
       },
-      "muteHttpExceptions" : false,
+      muteHttpExceptions : false,
     };
     const terms = [ `long_term`, `medium_term`, `short_term`, ];
 

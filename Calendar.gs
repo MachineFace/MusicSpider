@@ -177,11 +177,11 @@ const DeleteAllEvents = () => new CalendarService().DeleteAllEvents();
 const BuildCalendarFromSheet = () => {
   const calendar = new CalendarService();
   for(let i = 2; i < SHEETS.Events.getLastRow() + 1; i++) {
-    const event = GetRowData(SHEETS.Events, i);
+    const event = SheetService.GetRowData(SHEETS.Events, i);
     calendar.CreateCalendarEvent(event);
   }
   for(let i = 2; i < SHEETS.ComedyEvents.getLastRow() + 1; i++) {
-    const event = GetRowData(SHEETS.ComedyEvents, i);
+    const event = SheetService.GetRowData(SHEETS.ComedyEvents, i);
     calendar.CreateCalendarEvent(event);
   }
 }

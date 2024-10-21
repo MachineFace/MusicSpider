@@ -49,7 +49,7 @@ class Emailer {
     try {
       let events = {};
       for (let i = 2; i < SHEETS.Events.getLastRow(); i++) {
-        let rowData = GetRowData(SHEETS.Events, i);
+        let rowData = SheetService.GetRowData(SHEETS.Events, i);
         let { id } = rowData;
         events[id] = rowData;
       }
@@ -76,7 +76,7 @@ class Emailer {
     try {
       let events = {};
       for (let i = 2; i < SHEETS.ComedyEvents.getLastRow(); i++) {
-        let rowData = GetRowData(SHEETS.ComedyEvents, i);
+        let rowData = SheetService.GetRowData(SHEETS.ComedyEvents, i);
         let { id } = rowData;
         events[id] = rowData;
       }
