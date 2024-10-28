@@ -13,7 +13,7 @@ class SheetService {
     try {
       let data = sheet.getDataRange().getValues();
       let col = data[0].indexOf(columnName);
-      if (col == -1) throw new Error(`Getting data by header fucking failed...`);
+      if (col == -1) throw new Error(`Getting data by header failed.`);
       return data[row - 1][col];
     } catch (err) {
       console.error(`"GetByHeader()" failed : ${err} @ Sheet: ${sheet} Col Name specified: ${columnName} Row: ${row}`);
@@ -30,10 +30,8 @@ class SheetService {
    */
   static SetByHeader(sheet, columnName = ``, row = 2, val = ``) {
     try {
-      let data;
-      let col;
-      data = sheet.getDataRange().getValues();
-      col = data[0].indexOf(columnName) + 1;
+      let data = sheet.getDataRange().getValues();
+      let col = data[0].indexOf(columnName) + 1;
       if(col == -1) return 1;
       sheet.getRange(row, col).setValue(val);
       return 0;
@@ -54,8 +52,9 @@ class SheetService {
       const data = sheet.getDataRange().getValues();
       const col = data[0].indexOf(columnName);
       if (col == -1) throw new Error(`Column not found`);
-      let colData = data.map(d => d[col]);
-      colData.splice(0, 1);
+      let colData = data
+        .map(d => d[col])
+        .splice(0, 1);
       return colData;
     } catch (err) {
       console.error(`"GetColumnDataByHeader()" failed : ${err}`);
@@ -102,7 +101,7 @@ class SheetService {
   static SetRowData(sheet, data = {}) {
     try {
       if(typeof sheet != `object`) throw new Error(`No sheet or bad sheet provided.`);
-      let sheetHeaderNames = Object.values(GetRowData(sheet, 1));
+      let sheetHeaderNames = Object.values(SheetService.GetRowData(sheet, 1));
       let values = [];
       Object.entries(data).forEach(pair => {
         let headername = [...EVENT_SHEET_HEADERNAMES, ...ARTIST_SHEET_HEADERNAMES][pair[0]];
@@ -136,6 +135,108 @@ class SheetService {
     } catch (err) {
       console.error(`"SearchColumn()" failed : ${err} @ Sheet: ${sheet} Col Name specified: ${columnName} value: ${val}`);
       return false;
+    }
+  }
+
+  /**
+   * Find some data in the column
+   * @param {spreadsheet} sheet
+   * @param {string} column
+   * @param {any} data
+   * @returns {int} indexes
+   */
+  static FindDataInColumn(sheet, column = ``, data = ``) {
+    let indexes = [];
+    let values = sheet.getRange(column + ":" + column).getValues(); // like A:A
+    let row = 2;
+
+    while (values[row] && values[row][0] !== data) row++;
+    if (values[row][0] === data) indexes.push(row + 1);
+    else return -1;
+    return indexes;
+  }
+
+  /**
+   * Find some data in the row
+   * @param {spreadsheet} sheet
+   * @param {any} data
+   * @returns {[int]} column indexes
+   */
+  static FindDataInRow(sheet, data) {
+    let indexes = [];
+    let rows = sheet.getDataRange.getValues();
+
+    //Loop through all the rows and return a matching index
+    for (let r = 1; r < rows.length; r++) {
+      let index = rows[r].indexOf(data) + 1;
+      indexes.push(index);
+    }
+    return indexes;
+  }
+
+  /**
+   * Search a Specific Sheets for a value
+   * @required {string} value
+   * @returns {[sheet, [values]]} list of sheets with lists of indexes
+   */
+  static SearchSpecificSheet(sheet, value = ``) {
+    try {
+      if (value) value.toString().replace(/\s+/g, "");
+      const finder = sheet.createTextFinder(value).findNext();
+      if (finder == null) return false;
+      return finder.getRow();
+    } catch(err) {
+      console.error(`"SearchSpecificSheet()" failed : ${err}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Search all Sheets for a value
+   * @required {string} value
+   * @returns {[sheet, [values]]} list of sheets with lists of indexes
+   */
+  static Search(value = ``) {
+    try {
+      if (value === null || value === undefined) throw new Error(`Bad inputs to function. Value: ${value}`);
+      value = value.toString().replace(/\s+/g, "");
+      let res = {};
+      Object.values(SHEETS).forEach(sheet => {
+        const sheetName = sheet.getSheetName();
+        const finder = sheet.createTextFinder(value).findAll();
+        if (finder != null) {
+          let temp = [...finder.map(x => x.getRow())];
+          res[sheetName] = temp;
+        }
+      })
+      // console.info(JSON.stringify(res));
+      return res;
+    } catch(err) {
+      console.error(`"Search()" failed : ${err}`);
+      return 1;
+    }
+  }
+
+
+  /**
+   * Search all Sheets for one specific value
+   * @required {string} value
+   * @returns {[sheet, [number]]} [sheetname, row]
+   */
+  static FindOne(value = ``) {
+    try {
+      if (value) value.toString().replace(/\s+/g, "");
+      let res = {};
+      for(const [key, sheet] of Object.entries(SHEETS)) {
+        const finder = sheet.createTextFinder(value).findNext();
+        if (finder == null) return false;
+        // res[key] = finder.getRow();
+        res = SheetService.GetRowData(sheet, finder.getRow());
+      }
+      return res;
+    } catch(err) {
+      console.error(`"FindOne()" failed: ${err}`);
+      return 1;
     }
   }
 

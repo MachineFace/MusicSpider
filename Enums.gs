@@ -1052,6 +1052,7 @@ const COMEDIANS = [
   `Maria Bamford`,
   `Mark Normand`,
   `Matt Rife`,
+  `Matteo Lane`,
   `Michael Che`,
   `Michelle Wolf`,
   `Moshe Kasher`,
