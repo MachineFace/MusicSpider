@@ -1044,6 +1044,7 @@ const COMEDIANS = [
   `Jim Jefferies`,
   `Jimmy Carr`,
   `Jo Koy`,
+  // `Joe Rogan`,  // Joe Rogan is a NAZI supporter.
   `Joey Diaz`,
   `John Mulaney`,
   `Louis Black`,
@@ -1078,7 +1079,7 @@ const COMEDIANS = [
   `Tim Dillon`,
   `Tom Papa`,
   `Tom Segura`,
-  `Tony Hinchliffe`,
+  // `Tony Hinchcliffe`, // Turns out Hinchcliffe is a NAZI FUCK. (10/27/24 Madison Square Garden Nazi Rally.)
   `Tracy Morgan`,
   `Trevor Noah`,
   `W. Kamau Bell`,
