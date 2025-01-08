@@ -12,6 +12,8 @@ class ResidentAdvisorFactory {
     this.pageSize = 18;
     /** @private */
     this.pageLimit = 5000;
+    /** @private */
+    this.artists = this._GetArtistsListFromSheet();
   }
 
   /**
@@ -111,6 +113,7 @@ class ResidentAdvisorFactory {
         title = title ? title : `Untitled Event`;
         date = new Date(date) ? new Date(date) : new Date();
         let venueName = venue.name ? venue.name : `Unknown Venue`;
+        let priceRange = 0;
         let url = `https://ra.co${contentUrl}` ? `https://ra.co${contentUrl}` : `https://ra.co/`;
         let imageUrl = images[0]?.filename;
         let address = venue.address ? venue.address : `Unknown Location`;
@@ -122,7 +125,8 @@ class ResidentAdvisorFactory {
           title: title,
           date: date,
           city: city,
-          venue: venueName, 
+          venue: venueName,
+          priceRange : priceRange, 
           url: url, 
           image: imageUrl,
           acts: acts,
@@ -196,20 +200,27 @@ class ResidentAdvisorFactory {
   }
 
   /**
-   * Get Artist List
+   * Get List of Artists from Sheet
    * @private
    */
-  _GetArtistList() {
+  _GetArtistsListFromSheet() {
     try {
-      let artists = GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
-      if (artists.length < 1) throw new Error(`Unable to retrieve a list of artists`);
-      let filtered = [];
-      artists.forEach(artist => {
-        if (!ARTISTS_TO_IGNORE.includes(artist)) filtered.push(artist);
-      });
-      return [...new Set(filtered)].sort();
+      const artistsLength = SHEETS.Artists.getLastRow() - 1 > 1 ? SHEETS.Artists.getLastRow() - 1 : 1;
+      if(artistsLength < 1) throw new Error(`No results. Sheet is empty.`);
+
+      const ignoreList = [...SHEETS.ArtistsToIgnore.getRange(2, 1, SHEETS.ArtistsToIgnore.getLastRow() - 1, 1).getValues().flat()];
+
+      let artists = SHEETS.Artists
+        .getRange(2, 1, artistsLength, 1)
+        .getValues()
+        .flat()
+        .filter(x => !ignoreList.includes(x));
+      artists = [...new Set(artists)].sort();
+      console.info(`Number of artists: ${artists.length}`);
+      // artists.forEach(x => console.info(x));
+      return artists;
     } catch(err) {
-      console.error(`"_GetArtistList()" failed : ${err}`);
+      console.error(`"_GetArtistsListFromSheet()" failed: ${err}`);
       return 1;
     }
   }
@@ -296,10 +307,10 @@ class ResidentAdvisorFactory {
 
 const _testRA = () => {
   const ra = new ResidentAdvisorFactory();
-  // ra.Main();
+  ra.Main();
   // ra.GetExistingEvents();
-  let artists = ra._GetArtistList();
-  artists.forEach(a => console.info(a));
+  // let artists = ra._GetArtistsListFromSheet();
+  // artists.forEach(a => console.info(a));
 }
 
 

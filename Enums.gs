@@ -27,7 +27,8 @@ const EVENT_SHEET_HEADERNAMES = Object.freeze({
   title : `Event Title`,	
   venue : `Venue`,	
   city : `City`,	
-  date : `Date`,	
+  date : `Date`,
+  priceRange : `Price Range`,	
   url : `URL`,	
   image : `Image`,	
   acts : `Acts`,
@@ -41,7 +42,9 @@ const SHEETS = Object.freeze({
   Events :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Events`),
   ComedyEvents :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`ComedyEvents`),
   Artists : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Artists`),
+  ArtistsToIgnore : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`ArtistsToIgnore`),
   Comedians :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Comedians`),
+  Master : SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`MasterArtistList`),
   Logger :  SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(`SPREADSHEET_ID`)).getSheetByName(`Logger`),
 });
 
@@ -969,7 +972,6 @@ const ARTISTS_TO_IGNORE = [
   `Cesaria Evora`,
   `David Bowie`,
   `Elliott Smith`,
-  `ERICKSON Roky`,
   `Eurythmics`,
   `Fela Kuti`,
   `Gil Scott-Heron`,

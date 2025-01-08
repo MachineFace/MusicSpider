@@ -15,6 +15,14 @@ class TicketmasterFactory {
     this.radius = PropertiesService.getScriptProperties().getProperty(`RADIUS`);
     /** @private */
     this.units = PropertiesService.getScriptProperties().getProperty(`UNITS`);
+    /** @private */
+    this.artists = this._GetArtistsListFromSheet();         // Get list of artists from sheet
+    /** @private */
+    this.comedians = this._GetComediansListFromSheet();     // Get list of comedians from sheet
+    /** @private */
+    this._RemoveExpiredEntries(SHEETS.Events);              // Clean expired events
+    /** @private */
+    this._RemoveExpiredEntries(SHEETS.ComedyEvents);        // Clean expired comedy events
   }
 
   /**
@@ -22,17 +30,31 @@ class TicketmasterFactory {
    */
   async RefreshEvents() {          
     try {
-      this._RemoveExpiredEntries(SHEETS.Events);  // Clean expired events
-      this._RemoveExpiredEntries(SHEETS.ComedyEvents);  // Clean expired events
-
-      const artists = await this._GetArtistsListFromSheet();   // Get list of artists from sheet
-      this._DoParse(artists, SHEETS.Events);
-      const comedians = await this._GetComediansListFromSheet(); // Get list of comedians from sheet
-      this._DoParse(comedians, SHEETS.ComedyEvents);
-
-      return 0;
+      const startTime = new Date().getTime();
+      const timeout = 5.9 * 60 * 1000;
+      while (new Date().getTime() - startTime < timeout) {
+        this._DoParse(this.artists, SHEETS.Events);
+        return 0;
+      }
     } catch (err) { 
       console.error(`"RefreshEvents()" failed: ${err}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Refresh Events
+   */
+  async RefreshComedyEvents() {          
+    try {
+      const startTime = new Date().getTime();
+      const timeout = 5.9 * 60 * 1000;
+      while (new Date().getTime() - startTime < timeout) {
+        this._DoParse(this.comedians, SHEETS.ComedyEvents);
+        return 0;
+      }
+    } catch (err) { 
+      console.error(`"RefreshComedyEvents()" failed: ${err}`);
       return 1;
     }
   }
@@ -49,9 +71,9 @@ class TicketmasterFactory {
       await this.ParseResults(artist)
         .then(data => {
           if(!data) return;
-          Object.entries(data).forEach(([key, { title, acts, venue, city, date, url, image, address, }], idx) => {
+          Object.entries(data).forEach(([key, { title, acts, venue, city, date, priceRange, url, image, address, }], idx) => {
             // console.info(`IDX: ${idx}, KEY: ${key}, VALUES: ( Title: ${title}, Acts: ${acts}, Venue: ${venue}, City: ${city}, Date: ${date}, URL: ${url}, IMG: ${image}, Addr.: ${address})`);
-            let exists = searchColForValue(outputSheet, `URL`, url);
+            let exists = SheetService.SearchColumn(outputSheet, `URL`, url);
             if(exists) return;
             const event = {
               id : key,
@@ -59,6 +81,7 @@ class TicketmasterFactory {
               date: new Date(date),
               city: city,
               venue: venue, 
+              priceRange : priceRange,
               url: url, 
               image: image,
               acts: acts.toString(),
@@ -76,6 +99,7 @@ class TicketmasterFactory {
    */
   WriteEventToSheet(sheet = SHEETS.Events, event = {}) {
     try {
+      console.info(`Writing ${event.title} to sheet....`);
       const sheetHeaderNames = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
       let values = [];
       Object.entries(event).forEach(([key, value], idx) => {
@@ -85,6 +109,7 @@ class TicketmasterFactory {
       });
       // console.info(`Values: ${JSON.stringify(values)}`);
       sheet.appendRow(values);
+      console.info(`Event: ${event.title} written to sheet.`);
       return 0;
     } catch (err) {
       console.error(`WriteEventToSheet() failed: ${err}`);
@@ -110,9 +135,8 @@ class TicketmasterFactory {
             let attractions = [];
             item?._embedded?.attractions?.forEach((attraction) => attractions.push(attraction.name));
             
-            let artistsArr = this._GetArtistsListFromSheet();    // if other artists in my list are in this event, move them to front of list
-            for (let i = 0; i < artistsArr.length; i++){
-              let artist = artistsArr[i][0];
+            for (let i = 0; i < this.artists.length; i++){
+              let artist = this.artists[i][0];
               if (attractions.includes(artist) && artist != keyword) {
                 attractions = attractions.sort((x,y) =>  x == artist ? -1 : y == artist ? 1 : 0 );
               }
@@ -128,6 +152,10 @@ class TicketmasterFactory {
               if (item.dates.start.timeTBA || item.dates.start.noSpecificTime) {
                 date = item.dates.start.localDate;
               }
+              let pxs = item?.priceRanges[0];
+              let priceMin = pxs.min > 0 ? pxs.min : 0;
+              let priceMax = pxs.max >= priceMin ? pxs.max : 0;
+              let priceRange = `${priceMin} - ${priceMax}`;
               // console.info(`venue: ${venueventTitle}`);
               if (attractions.includes(keyword) || item.name.toUpperCase() == keyword.toUpperCase()) {
                 events[id] = { 
@@ -136,14 +164,15 @@ class TicketmasterFactory {
                   venue : venue.name , 
                   city : venue.city.name, 
                   date : date, 
+                  priceRange : priceRange,
                   url : item.url, 
                   image : item.images[image[0][0]].url,
-                  address : `${venue.address.line1}, ${venue.city.name}, ${venue.state.name}`
+                  address : `${venue.address.line1}, ${venue.city.name}, ${venue.state.name}`,
                 }
               }
             });
           });
-        // console.info(Common.PrettifyJson(events));
+        console.info(Common.PrettifyJson(events));
         });
       return await events;
     } catch (err) {
@@ -186,11 +215,12 @@ class TicketmasterFactory {
         async : true,
         contentType : "application/json",
         muteHttpExceptions : false,
-      };
-      Sleep(500);       // Wait a sec
+      }
+      Sleep(1000);       // Wait a sec
       const response = await UrlFetchApp.fetch(url, options);
       const responseCode = response.getResponseCode();
-      if (responseCode != 200) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      if (responseCode == 429) throw new Error(`Rate limit from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
 
       const content = JSON.parse(response.getContentText());
       if(!content.hasOwnProperty(`_embedded`)) return {}
@@ -210,10 +240,17 @@ class TicketmasterFactory {
     try {
       const artistsLength = SHEETS.Artists.getLastRow() - 1 > 1 ? SHEETS.Artists.getLastRow() - 1 : 1;
       if(artistsLength < 1) throw new Error(`No results. Sheet is empty.`);
-      const artists = SHEETS.Artists
+
+      const ignoreList = [...SHEETS.ArtistsToIgnore.getRange(2, 1, SHEETS.ArtistsToIgnore.getLastRow() - 1, 1).getValues().flat()];
+
+      let artists = SHEETS.Artists
         .getRange(2, 1, artistsLength, 1)
         .getValues()
-        .flat();
+        .flat()
+        .filter(x => !ignoreList.includes(x));
+      artists = [...new Set(artists)].sort();
+      console.info(`Number of artists: ${artists.length}`);
+      // artists.forEach(x => console.info(x));
       return artists;
     } catch(err) {
       console.error(`"_GetArtistsListFromSheet()" failed: ${err}`);
@@ -229,10 +266,13 @@ class TicketmasterFactory {
     try {
       const comediansLength = SHEETS.Comedians.getLastRow() - 1 > 1 ? SHEETS.Comedians.getLastRow() - 1 : 1;
       if(comediansLength < 1) throw new Error(`No results. Sheet is empty.`);
+      const ignoreList = [...SHEETS.ArtistsToIgnore.getRange(2, 1, SHEETS.ArtistsToIgnore.getLastRow() - 1, 1).getValues().flat()];
+
       const comedians = SHEETS.Comedians
         .getRange(2, 1, comediansLength, 1)
         .getValues()
-        .flat();
+        .flat()
+        .filter(x => !ignoreList.includes(x))
       return comedians;
     } catch(err) {
       console.error(`"_GetComediansListFromSheet()" failed: ${err}`);
@@ -247,7 +287,7 @@ class TicketmasterFactory {
    * @param {sheet} sheet
    * @param {string} dateHeaderName default is "Date"
    */
-  _RemoveExpiredEntries (sheet = SHEETS.Events, dateHeaderName = "Date") {
+  _RemoveExpiredEntries(sheet = SHEETS.Events, dateHeaderName = "Date") {
     try {
       let data = sheet.getDataRange().getValues();
       let lastRow = sheet.getLastRow() - 1; 
@@ -280,14 +320,20 @@ class TicketmasterFactory {
  * @TRIGGERED
  */
 const refreshEvents = async () => await new TicketmasterFactory().RefreshEvents();
+const refreshComedyEvents = async () => await new TicketmasterFactory().RefreshComedyEvents();
 
-
-const _testSearch = () => {
+const _testSearch = async () => {
   const t = new TicketmasterFactory();
-  const artists = t._GetArtistsListFromSheet().slice(0, 50);
-  artists.forEach(async (artist) => {
-    console.info(Common.PrettifyJson(await t.ParseResults(artist)));
-  });
+  // const artists = t._GetArtistsListFromSheet().slice(25, 50);
+  // artists.forEach(async (artist) => {
+  //   console.info(Common.PrettifyJson(await t.ParseResults(artist)));
+  // });
+  console.info(Common.PrettifyJson(await t.ParseResults(`Justice`)));
+}
+
+const _testThing = () => {
+  const t = new TicketmasterFactory();
+  t._GetArtistsListFromSheet();
 }
 
 
