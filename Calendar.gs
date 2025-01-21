@@ -64,11 +64,14 @@ class CalendarService {
       events.forEach(event => {
         if(this.EventExists(event)) {
           const title = event.getTitle();
-          const eventID = event.getDescription()
-            .split(`ID:`)[1]
-            .replace(/^\s\s*/, "")
-            .replace(/\s\s*$/, "")
-          console.info(`DELETING DUPLICATE EVENT! (${title} @ ${eventID})`);
+          console.info(`Checking (${title})`);
+          let eventID = event.getDescription()
+            .split(`ID:`)[1];
+          if(typeof(eventID) == String) {
+            eventID
+              .replace(/^\s\s*/, "")
+              .replace(/\s\s*$/, "")
+          }
           // event.deleteEvent();
         }
       });
@@ -137,10 +140,13 @@ class CalendarService {
 
     for(let i = 0; i < Object.entries(events).length; i++) {
       const [key, event] = Object.entries(events)[i];
-      const eventID = event.getDescription()
-        .split(`ID:`)[1]
-        .replace(/^\s\s*/, "")
-        .replace(/\s\s*$/, "")
+      let eventID = event.getDescription()
+        .split(`ID:`)[1];
+      if(typeof(eventID) == String) {
+        eventID
+          .replace(/^\s\s*/, "")
+          .replace(/\s\s*$/, "")
+      }
       // console.info(eventID);
       if(eventID == id) return true;
     }

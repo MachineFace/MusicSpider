@@ -331,9 +331,10 @@ const _testSearch = async () => {
   console.info(Common.PrettifyJson(await t.ParseResults(`Justice`)));
 }
 
-const _testThing = () => {
+const _testThing = async () => {
   const t = new TicketmasterFactory();
-  t._GetArtistsListFromSheet();
+  // t._GetArtistsListFromSheet();
+  await t._DoParse([`Whitney Cummings,`], SHEETS.ComedyEvents);
 }
 
 
