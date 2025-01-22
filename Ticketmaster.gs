@@ -128,36 +128,35 @@ class TicketmasterFactory {
 
       await this.SearchTicketmaster(keyword)
         .then(data => {
-          if (data.length == 0 || data.length == undefined) return {};
+          if (!data || data.length === 0 || data.length === undefined) return {};
           data.forEach((item) => {
             let id = IDService.createId();
             let image = this._GetImage(item);
-            let attractions = [];
-            item?._embedded?.attractions?.forEach((attraction) => attractions.push(attraction.name));
+            let attractions = item?._embedded?.attractions?.map(attraction => attraction.name) || [];
             
             for (let i = 0; i < this.artists.length; i++){
-              let artist = this.artists[i][0];
-              if (attractions.includes(artist) && artist != keyword) {
-                attractions = attractions.sort((x,y) =>  x == artist ? -1 : y == artist ? 1 : 0 );
+              let artist = Array.isArray(this.artists[i]) ? this.artists[i][0] : this.artists[i];
+              if (attractions.includes(artist) && artist !== keyword) {
+                attractions = attractions.sort((x,y) =>  x === artist ? -1 : y === artist ? 1 : 0 );
               }
             }
             // then move keyword to front of list of acts
-            attractions = attractions.sort((x,y) => { return x == keyword ? -1 : y == keyword ? 1 : 0; });
+            attractions = attractions.sort((x,y) => { return x === keyword ? -1 : y === keyword ? 1 : 0; });
             item?._embedded?.venues?.forEach((venue) => { 
-              let date;
-              if (item.dates.start.dateTime) {
-                date = item.dates.start.dateTime;
-              }
+
               // some list timeTBA = true, or noSpecificTime = true. if so, use localDate value
-              if (item.dates.start.timeTBA || item.dates.start.noSpecificTime) {
-                date = item.dates.start.localDate;
-              }
-              let pxs = item?.priceRanges[0];
+              let date = item.dates.start.timeTBA || item.dates.start.noSpecificTime
+                ? item.dates.start.localDate
+                : item.dates.start.dateTime;
+              let pxs = item?.priceRanges?.[0] || { min : 0, max : 0, };
               let priceMin = pxs.min > 0 ? pxs.min : 0;
               let priceMax = pxs.max >= priceMin ? pxs.max : 0;
               let priceRange = `${priceMin} - ${priceMax}`;
+              let ix = Array.isArray(image?.[0]) ? image[0][0] : image?.[0];
+              let image_url = item.images?.[ix]?.url || ``;
+              let address = `${venue.address?.line1 || ''}, ${venue.city?.name || ''}, ${venue.state?.name || ''}`;
               // console.info(`venue: ${venueventTitle}`);
-              if (attractions.includes(keyword) || item.name.toUpperCase() == keyword.toUpperCase()) {
+              if (attractions.includes(keyword) || item.name.toUpperCase() === keyword.toUpperCase()) {
                 events[id] = { 
                   title : item.name,
                   acts : attractions,
@@ -166,8 +165,8 @@ class TicketmasterFactory {
                   date : date, 
                   priceRange : priceRange,
                   url : item.url, 
-                  image : item.images[image[0][0]].url,
-                  address : `${venue.address.line1}, ${venue.city.name}, ${venue.state.name}`,
+                  image : image_url,
+                  address : address,
                 }
               }
             });
