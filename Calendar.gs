@@ -4,6 +4,8 @@ class CalendarService {
   constructor() {
     /** @private */
     this.calendar = CalendarApp.getCalendarById(PropertiesService.getScriptProperties().getProperty(`CALENDAR_ID`));
+    /** @private */
+    this.events = this.Events;
   }
 
   /**
@@ -29,17 +31,18 @@ class CalendarService {
   }
 
   /**
-   * Delete Event by ID
-   * @param {string} id
+   * Delete Event by Google ID
    */
-  DeleteEvent(id = ``) {
+  async DeleteEventByGID(googleId) {
     try {
-      this.calendar.getEventById(id)
+      console.info(`Deleting Event: ${googleId}....`);
+      this.calendar
+        .getEventById(googleId)
         .deleteEvent();
-      console.warn(`Event (${id}) Deleted`);
+      console.info(`Event: ${googleId} Deleted.`);
       return 0;
     } catch(err) {
-      console.error(`"DeleteEvent()" failed: ${err}`);
+      console.error(`"DeleteEventByGID()" failed : ${err}`);
       return 1;
     }
   }
@@ -56,29 +59,41 @@ class CalendarService {
   }
 
   /**
-   * Remove Duplicates
+   * Delete Duplicate Events
    */
-  RemoveDuplicateEvents() {
+  DeleteDuplicateEvents() {
     try {
-      const events = this.Events;
-      events.forEach(event => {
-        if(this.EventExists(event)) {
-          const title = event.getTitle();
-          console.info(`Checking (${title})`);
-          let eventID = event.getDescription()
-            .split(`ID:`)[1];
-          if(typeof(eventID) == String) {
-            eventID
-              .replace(/^\s\s*/, "")
-              .replace(/\s\s*$/, "")
-          }
-          // event.deleteEvent();
+      let seen = []
+      let events = this.events;
+      
+      for(let event of events) {
+        const uuid = this.ExtractIDFromEvent(event);
+        const gID = event.getId();
+        const title = event.getTitle();
+        const start = event.getStartTime().getTime();
+        const end = event.getEndTime().getTime();
+
+        if (!uuid || !title) continue; // Skip incomplete events
+
+        // Check for duplicates by comparing to each seen event
+        let duplicate = seen.find(e =>
+          (e.uuid === uuid && e.title === title && e.start === start && e.end === end) || // Exact duplicate
+          (e.title === title && e.start === start) ||                                     // Same title + start
+          (Math.abs(e.start - start) <= 60 * 1000 && e.title === title)                   // Title match & ~start
+        );
+
+        if (duplicate) {
+          console.warn(`Duplicate found. Deleting: "${title}" @ ${new Date(start)} | UUID: ${uuid}`);
+          event.deleteEvent();
+        } else {
+          seen.push({ uuid, title, start, end });
         }
-      });
-      console.info(`No Duplicate Events found.`);
+      }
+
+      console.info(`Events: ${JSON.stringify(seen, null, 3)}`);
       return 0;
     } catch(err) {
-      console.error(`"RemoveDuplicateEvents()" failed: ${err}`);
+      console.error(`"DeleteDuplicateEvents()" failed : ${err}`);
       return 1;
     }
   }
@@ -132,28 +147,6 @@ class CalendarService {
   }
 
   /**
-   * Test if Event Exists
-   */
-  EventExists(event = {}) {
-    const { id, title, date, city, venue, url, image, acts, address } = event;
-    const events = this.Events;
-
-    for(let i = 0; i < Object.entries(events).length; i++) {
-      const [key, event] = Object.entries(events)[i];
-      let eventID = event.getDescription()
-        .split(`ID:`)[1];
-      if(typeof(eventID) == String) {
-        eventID
-          .replace(/^\s\s*/, "")
-          .replace(/\s\s*$/, "")
-      }
-      // console.info(eventID);
-      if(eventID == id) return true;
-    }
-    return false;
-  }
-
-  /**
    * Add Hours
    * @param {Date} time initial
    * @param {Number} hours to add
@@ -162,6 +155,106 @@ class CalendarService {
   AddHours(time = new Date(), h = 1) {
     const date = new Date(time).getTime();
     return new Date(date + (h * 60 * 60 * 1000));
+  }
+
+  /**
+   * Extract UID from Event Description
+   * @param {Object} event
+   * @returns {string} uuid
+   * @private
+   */
+  ExtractIDFromEvent(event = {}) {
+    const regex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
+    const description = event.getDescription()
+    const match = description.match(regex);
+    const id = match ? match[0] : null;
+    // console.info(id);
+    return id;    
+  }
+
+  /**
+   * Test if Event Exists
+   * @param {string} uuid
+   * @returns {boolean} true if event exists
+   */
+  EventExists(uuid = ``, referenceEvent = null) {
+    try {
+      // console.info(`Event ID: ${uuid}`);
+      if (!this.events || !Array.isArray(this.events)) {
+        console.warn("this.events is undefined or not an array");
+        return false;
+      }
+
+      for (let event of this.events) {
+        const eventID = this.ExtractIDFromEvent(event);
+        if (eventID === uuid) {
+          return true;
+        } else if (referenceEvent) {
+          const sameTitle = event.getTitle?.() === referenceEvent.getTitle?.();
+          const sameStart = event.getStartTime?.()?.getTime?.() === referenceEvent.getStartTime?.()?.getTime?.();
+          const approxStart = (Math.abs(event.getStartTime() - referenceEvent.getStartTime()) <= 60 * 1000)                   // Match ~Start
+          if ((sameTitle && sameStart) || (sameTitle && approxStart)) return true;
+        }
+      }
+
+      return false;
+    } catch(err) {
+      console.error(`"EventExists()" failed: ${err}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Test if Event Exists (static func)
+   * @param {string} bool
+   * @returns {bool} true if event exists
+   */
+  static EventExists(uuid = ``) {
+    return CalendarFactory.prototype.EventExists(uuid);
+  }
+
+  /**
+   * Check for event date conflicts.
+   * @param {Date} proposedStart - Start date of the proposed event.
+   * @param {Date} proposedEnd - End date of the proposed event.
+   * @returns {boolean} - Returns true if there's a conflict, false otherwise.
+   */
+  IsEventConflict(proposedStart = new Date(), proposedEnd = new Date()) {
+    try {
+      if (!(proposedStart instanceof Date) || !(proposedEnd instanceof Date)) {
+        throw new Error("Invalid input: proposedStart and proposedEnd must be Date objects");
+      }
+
+      let existingEvents = [];
+      const ids = [...SheetService.GetColumnDataByHeader(SHEETS.Events, EVENT_SHEET_HEADERNAMES.id)];
+      const dates = [...SheetService.GetColumnDataByHeader(SHEETS.Events, EVENT_SHEET_HEADERNAMES.date)];
+
+      dates.forEach( (date, idx) => {
+        let entry = {
+          start : new Date(date),
+          end : this.AddHours(new Date(date), 4),
+        }
+        existingEvents.push(entry);
+      });
+      console.info(JSON.stringify(existingEvents, null, 2));
+
+      for (const event of existingEvents) {
+        const existingStart = new Date(event.start);
+        const existingEnd = new Date(event.end);
+
+        // Check if proposed event overlaps with current event
+        const isOverlap = proposedStart < existingEnd && proposedEnd > existingStart;
+        if (isOverlap) {
+          console.warn(`Conflict Encountered:`)
+          return true;
+        }
+      }
+
+      return false;
+    } catch(err) {
+      console.error(`"IsEventConflict()" failed: ${err}`);
+      return 1;
+    }
   }
 
 }
@@ -195,8 +288,23 @@ const BuildCalendarFromSheet = () => {
 
 
 
-// const _testCalendar = () => {
-//   const calendar = new CalendarService();
+const _testCalendar = () => {
+  const calendar = new CalendarService();
+
+  // // Print all events
+  // const events = calendar.Events;
+  // events.forEach(event => {
+  //   console.info(`Event: ${event.getId()}`);
+  //   console.info(`Description: ${event.getDescription()}`)
+  // });
+
+  // // Test Existing
+  // let exists = calendar.EventExists(`e9831c32-71b4-472f-a4fb-850504db5579`);
+  // console.info(`Event Exists: ${exists}`);
+
+  // Test Delete Duplicate
+  calendar.DeleteDuplicateEvents();
+
 //   const event = {
 //     "id": "6f918456-549e-442b-a195-109f75b7bfc0",
 //     "title": "Animals As Leaders: Joy Of Motion X Tour",
@@ -208,9 +316,12 @@ const BuildCalendarFromSheet = () => {
 //     "acts": "Animals As Leaders,Plini",
 //     "address": "1805 Geary Boulevard, San Francisco, California",
 //   }
-//   const x = calendar.EventExists(event);
-//   console.info(x);
-// }
+
+
+  // // Test Conflict
+  // let conflict = calendar.IsEventConflict(new Date(2025, 6, 31, 3, 0, 0, 0), new Date(2025, 9, 29, 7, 0, 0, 0));
+  // console.info(`Conflict: ${conflict}`);
+}
 
 
 
