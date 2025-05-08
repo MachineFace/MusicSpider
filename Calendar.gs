@@ -51,11 +51,13 @@ class CalendarService {
    * Delete All Events
    */
   DeleteAllEvents() {
-    const events = this.Events;
-    events && Object.entries(events).forEach(([key, event], idx) => {
-      event.deleteEvent();
-    });
-    return 0;
+    try {
+      this.events.forEach(event => event.deleteEvent());
+      return 0;
+    } catch(err) {
+      console.error(`"DeleteAllEvents()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -114,21 +116,21 @@ class CalendarService {
   */
   CreateCalendarEvent(event = {}) {
     try {
-      if(this.EventExists(event)) return; // Already there? Do nuthin
-      console.info(`EVENT -----> ${JSON.stringify(event, null, 3)}`);
       let { id, title, date, city, venue, url, image, acts, address } = event;
-      date  = new Date(event.date);
-      const endTime = new Date(this.AddHours(date, 3));
+      if(this.EventExists(id)) return; // Already there? Do nuthin
+      date  = new Date(date);
+      let endTime = new Date(this.AddHours(date, 3));
       const description = `
-        ${image}\n
-        Title: ${title}\n
-        Tickets: ${url}\n
-        Acts: ${acts}\n
-        Date: ${date}\n
-        Venue: ${venue}\n
-        City: ${city}\n
-        ID: ${id}\n
+        Title: ${title}
+        Tickets: ${url}
+        Acts: ${acts}
+        Date: ${date}
+        Venue: ${venue}
+        City: ${city}
+        ID: ${id}
+        Image: ${image}
       `;
+      console.info(`EVENT -----> ${JSON.stringify(event, null, 3)}`);
       this.calendar
         .createEvent(
           `${title} at ${venue}`, 
@@ -190,10 +192,13 @@ class CalendarService {
         if (eventID === uuid) {
           return true;
         } else if (referenceEvent) {
-          const sameTitle = event.getTitle?.() === referenceEvent.getTitle?.();
-          const sameStart = event.getStartTime?.()?.getTime?.() === referenceEvent.getStartTime?.()?.getTime?.();
+          const sameTitle = event.getTitle() === referenceEvent.getTitle();
+          const sameStart = event.getStartTime().getTime() === referenceEvent.getStartTime().getTime();
           const approxStart = (Math.abs(event.getStartTime() - referenceEvent.getStartTime()) <= 60 * 1000)                   // Match ~Start
-          if ((sameTitle && sameStart) || (sameTitle && approxStart)) return true;
+          if ((sameTitle && sameStart) || (sameTitle && approxStart)) {
+            console.warn(`Event Exists: (${eventID})`)
+            return true;
+          }
         }
       }
 
@@ -209,8 +214,8 @@ class CalendarService {
    * @param {string} bool
    * @returns {bool} true if event exists
    */
-  static EventExists(uuid = ``) {
-    return CalendarFactory.prototype.EventExists(uuid);
+  static EventExists(uuid = ``, event = {}) {
+    return CalendarFactory.prototype.EventExists(uuid, event);
   }
 
   /**
@@ -263,7 +268,7 @@ class CalendarService {
  * Remove Duplicate Events
  * @TRIGGERED
  */
-const RemoveDuplicateEvents = () => new CalendarService().RemoveDuplicateEvents();
+const RemoveDuplicateEvents = () => new CalendarService().DeleteDuplicateEvents();
 
 /**
  * Delete All Events

@@ -60,8 +60,7 @@ class SpotifyService {
    * @private
    */
   _isServiceActive() {
-    if(!this.service.hasAccess()) return false;
-    return true;
+    return this.service.hasAccess();
   }
 
   /**
