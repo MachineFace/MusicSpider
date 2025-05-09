@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"> 
   <head>
-    <title>Spotify - First Time Authentication</title>
+    <title>Music Spider - Spotify First Time Authentication</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
     <meta charset="UTF-8"/>
@@ -19,35 +19,85 @@
 
     <!-- Compiled and minified JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <style>
+      h1 {text-align: center;}
+      .center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 15%;
+      }
+      .button {
+        background-color: #008CBA; 
+        border: none;
+        color: white;
+        padding: 10px 18px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+      }
+    </style>
+
+    <script>
+      var redirectURI = GetRedirectUri();
+      function copyURI() {
+        // Get the text field
+        var copyText = document.getElementById("URI");
+
+        // Select the text field
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); // For mobile devices
+
+        // Copy the text inside the text field
+        navigator.clipboard.writeText(copyText.value);
+
+        // Alert the copied text
+        // alert("Copied the text: " + copyText.value);
+      } 
+    </script>
+
   </head>
   <body>
     <section>
-      <h1>Spotify - First Time Authentication</h1>
-      <ol>
-        <li>
-          <p>Navigate to your Spotify Backup Script app via the <a href="https://developer.spotify.com/dashboard/applications">Spotify App Dashboard.</a></p>
-        </li>
-        <li>
-          <p>
-            Add the following URI to the 'Redirect URIs' field, found under "Edit Settings":<br />
-            <code><strong><?= ScriptApp.getService().getUrl() ?> </strong> </code>
-          </p>
-          <p>
-            For more information, see
-            <a href="https://developer.spotify.com/documentation/general/guides/app-settings/">Spotify's Development Guide.</a>
-          </p>
-        </li>
-        <li>
-          <p>
-            Go to the following URL, log into the desired user's Spotify account, and approve access:<br />
-            <a href="<?= generateAuthUrl() ?>" target="_blank"><?= generateAuthUrl() ?></a>
-          </p>
-        </li>
-        <li>
-          You should be redirected back to a success page on Google App Script.
-        </li>
-      </ol>
+      <a href="https://github.com/cparsell/music-spider">
+        <img src="https://i.postimg.cc/HkVc4bCq/music-spider-logo-nobg.png" class="center" />
+      </a><br/>
+      <h3>Music Spider - Spotify First Time Authentication</h3>
+      <p>
+        <ol>
+          <li>
+            <a href="https://developer.spotify.com/dashboard/applications" target="_blank" rel="noopener noreferrer">
+              Create an app called <b>Music Spider</b> in the Spotify API App Dashboard
+            </a>.
+          </li>
+          <li>
+              <a href="https://developer.spotify.com/dashboard/applications">
+                Navigate to your Spotify App via the Spotify App Dashboard.
+              </a>
+          </li>
+          <li>
+              Paste the following URI to the 'Redirect URIs' field:<br />
+              <b><?= redirectURI ?></b>
+          </li>
+          <li>
+              Go to the following URL, log into the desired user's Spotify account, and approve access:<br />
+              <a href="<?=generateAuthUrl()?>" target="_blank">Generate Authorization URL</a>
+          </li>
+          <li>
+            You should be redirected back to a success page on Google App Script.
+          </li>
+          <li>
+              <a href="https://developer.spotify.com/documentation/general/guides/app-settings/">For more information, see Spotify's Development Guide.</a>
+          </li>
+        </ol>
+      </p>
     </section>
   </body>
 
 </html>
+
+
+
+

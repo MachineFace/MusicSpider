@@ -84,7 +84,8 @@ const popupCreateNewID = () => {
 
 const popupSpotifyAuth = async () => {
   let ui = await SpreadsheetApp.getUi();
-  let htmlOutput = HtmlService.createHtmlOutput(await GetSpotifyService())
+  const sps = new SpotifyService();
+  let htmlOutput = HtmlService.createHtmlOutputFromFile(`auth_steps`)
     .setWidth(640)
     .setHeight(480);
   ui.showModalDialog(htmlOutput, `${SERVICE_NAME} Connect to Spotify`);
@@ -95,7 +96,11 @@ const popupRedirectURI = () => {
   const ui = SpreadsheetApp.getUi();
   ui.alert(
     SERVICE_NAME,
-    `COPY THIS: ----->  ${redirectURI}   <----- COPY THIS.`,
+    `COPY THIS:\n
+    -----\n
+    ${redirectURI}\n
+    -----\n
+    COPY THIS.`,
     ui.ButtonSet.OK
   );
 }

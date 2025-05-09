@@ -9,50 +9,86 @@ class SpotifyService {
     /** @private */
     this.baseUrl = `https://api.spotify.com/v1`;
     /** @private */
+    this.authUrl = `https://accounts.spotify.com/authorize`;
+    /** @private */
+    this.refreshUrl = `https://accounts.spotify.com/api/token`;
+    /** @private */
+    this.redirect_uri = `https://script.google.com/macros/d/16EI9_XdBK2wvXyqSotATeE9zsr5MOKu99UvuQyCKR44CnkqdkHSW7X4F/usercallback`;
+
+    /** @private */
     this.clientID = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`);
     /** @private */
     this.clientSecret = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`);
     /** @private */
     this.playlistId = PropertiesService.getScriptProperties().getProperty(`SPOTIFY_PLAYLIST_ID`);
     /** @private */
+    this.scope = `user-library-read playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private`;
+    /** @private */
     this.profileUrl = `${this.baseUrl}/me`;
 
     /** @private */
-    this.service = this._CreateService();
+    this.service = this.CreateService();
+
   }
 
   /**
    * Configure the service
+   */
+  CreateService() {
+    try {
+      const service = OAuth2.createService(`Spotify`)
+        .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
+        .setTokenUrl(`https://accounts.spotify.com/api/token`)
+        .setClientId(this.clientID)
+        .setClientSecret(this.clientSecret)
+        .setPropertyStore(PropertiesService.getUserProperties())
+        .setCache(CacheService.getUserCache())
+        .setLock(LockService.getUserLock())
+        .setScope(this.scope)
+        .setTokenHeaders({
+          Authorization: 'Basic ' + Utilities.base64Encode(this.clientID + ':' + this.clientSecret)
+        });
+      service
+        .setCallbackFunction((request) => {
+          const isAuthorized = service.handleCallback(request);
+          if (isAuthorized) { 
+            return HtmlService
+              .createTemplateFromFile("auth_success")
+              .evaluate();
+          } else if(!isAuthorized) {
+            return HtmlService
+              .createTemplateFromFile("auth_steps")
+              .evaluate();
+          } else {
+            return HtmlService
+              .createTemplateFromFile("auth_error")
+              .evaluate();
+          }
+        });
+        
+      if (!service.hasAccess()) {
+        const auth_url = this.GenerateAuthUrl();
+        // throw new Error('Error: Missing Spotify authorization.');
+      }
+      // console.info(service);
+      console.info(`Service Access: ${service.hasAccess()}`);
+      this.service = service;
+      return service;
+    } catch(err) {
+      console.error(`"CreateService()" failed: ${err.message}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Generate URL for requesting authorization
    * @private
    */
-  _CreateService() {
-    const service = OAuth2.createService(`Spotify`)
-      .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
-      .setTokenUrl(`https://accounts.spotify.com/api/token`)
-      .setClientId(this.clientID)
-      .setClientSecret(this.clientSecret)
-      .setCallbackFunction((request) => {
-        const service = GetSpotifyService();
-        const isAuthorized = service.handleCallback(request);
-        if (isAuthorized) { 
-          return HtmlService
-            .createTemplateFromFile("auth_success")
-            .evaluate();
-        } else {
-          return HtmlService
-            .createTemplateFromFile("auth_error")
-            .evaluate();
-        }
-      })
-      .setPropertyStore(PropertiesService.getUserProperties())
-      .setCache(CacheService.getUserCache())
-      .setLock(LockService.getUserLock())
-      .setScope('user-library-read playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private');
-    if (!service.hasAccess()) {
-      throw new Error('Error: Missing Spotify authorization.');
-    }
-    console.info(`Service Access: ${service.hasAccess()}`);
-    return service;
+  GenerateAuthUrl() {
+    const params = `?response_type=code&client_id=${this.clientID}&scope=${this.scope}&redirect_uri=${this.redirect_uri}`;
+    const authURL = this.authUrl + encodeURI(params);
+    console.warn(authURL);
+    return authURL;
   }
 
   /**
@@ -70,21 +106,21 @@ class SpotifyService {
    * @returns {object} data
    */
   async _GetData(url) {
-    if(!this._isServiceActive()) {
-      const authURL = service.getAuthorizationUrl();
-      console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
-      return 1;
-    }
-    const options = {
-      method : "GET",
-      contentType : "application/json",
-      headers : { "Authorization" : "Bearer " + this.service.getAccessToken(), },
-      muteHttpExceptions : false,
+    // if(!this._isServiceActive()) {
+    //   const authURL = this.service.getAuthorizationUrl();
+    //   console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
+    //   return 1;
+    // }
+    const params = {
+      "method" : "GET",
+      "contentType" : "application/json",
+      "headers" : { "Authorization" : "Bearer " + this.service.getAccessToken(), },
+      "muteHttpExceptions" : false,
     };
     try {
       let data = [];
       for(let i = 0; i < 1000; i += 100) {
-        const response = await UrlFetchApp.fetch(url + "&offset=" + i, options);
+        const response = await UrlFetchApp.fetch(url + "&offset=" + i, params);
         const responseCode = response.getResponseCode();
         if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Spotify: ${responseCode} - ${RESPONSECODES[responseCode]}`);
         data.push(JSON.parse(response.getContentText()));
@@ -259,7 +295,7 @@ class SpotifyService {
    */
   async GetTopArtists() {
     if(!this._isServiceActive()) {
-      const authURL = service.getAuthorizationUrl();
+      const authURL = this.service.getAuthorizationUrl();
       console.error(`Spotify not authorized yet.\nOpen the following URL and re-run the script: ${authURL}`);
       return 1;
     }
@@ -415,53 +451,21 @@ class SpotifyService {
 const refreshArtists = () => new SpotifyService().RefreshArtists();
 const refreshComedians = () => new SpotifyService().RefreshComedians();
 
-/**
- * @private
- */
-const _testSP = async () => {
-  const s = new SpotifyService().RefreshComedians();
-} 
 
-
-
-
-
-// Configure the service
-const GetSpotifyService = () => {
-  const service = OAuth2.createService(`Spotify`)
-    .setAuthorizationBaseUrl(`https://accounts.spotify.com/authorize`)
-    .setTokenUrl(`https://accounts.spotify.com/api/token`)
-    .setClientId(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_ID`))
-    .setClientSecret(PropertiesService.getScriptProperties().getProperty(`SPOTIFY_CLIENT_SECRET`))
-    .setCallbackFunction((request) => {
-      const service = GetSpotifyService();
-      const isAuthorized = service.handleCallback(request);
-      if (isAuthorized) { 
-        return HtmlService
-          .createTemplateFromFile("auth_success")
-          .evaluate();
-      } else {
-        return HtmlService
-          .createTemplateFromFile("auth_error")
-          .evaluate();
-      }
-    })
-    .setPropertyStore(PropertiesService.getUserProperties())
-    .setCache(CacheService.getUserCache())
-    .setLock(LockService.getUserLock())
-    .setScope('user-library-read playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private');
-  if (!service.hasAccess()) {
-    throw new Error('Error: Missing Spotify authorization.');
-  }
-  console.info(`Access: ${service.hasAccess()}`);
-  return service;
-}
+const GetSpotifyService = () => new SpotifyService();
 
 // Logs the redirect URI to register. You can also get this from File > Project Properties
 const GetRedirectUri = () => {
-  const redirectURI = GetSpotifyService().getRedirectUri();
-  console.log(redirectURI);
-  return redirectURI;
+  const service = new SpotifyService();
+  const redirect_uri = service.getRedirectUri();
+  console.log(redirect_uri);
+  return redirect_uri;
+}
+
+const GetAuthURL = () => {
+  const service = new SpotifyService();
+  const auth_url = service.GenerateAuthUrl();
+  return auth_url;
 }
 
 // Handle the callback
@@ -478,6 +482,8 @@ const authCallback = (request) => {
       .evaluate();
   }
 }
+
+
 
 
 

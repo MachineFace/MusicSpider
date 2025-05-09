@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">  
   <head>
-    <title>Spotify - Authentication Error</title>
+    <title>Music Spider - Spotify Authentication Error</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
     <meta charset="UTF-8"/>
@@ -20,10 +20,27 @@
     <!-- Compiled and minified JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
+    <style>
+      h1 {text-align: center;}
+      .center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 15%;
+      }
+    </style>
   </head>
+
   <body>
-    <h1>Spotify Backup Script - Authentication Error</h1>Error returned from Spotify API:
-    <code><?= errorText ?></code>
+    <a href="https://github.com/cparsell/music-spider">
+      <img src="https://i.postimg.cc/HkVc4bCq/music-spider-logo-nobg.png" class="center" />
+    </a>
+    <br />
+    <h1>Music Spider - Authentication Error</h1>
+    <p>
+      Error returned from Spotify API:<br/>
+      <code><?= errorText ?></code>
+    </p>
   </body>
 
 </html>
