@@ -92,7 +92,8 @@ class CalendarService {
         }
       }
 
-      console.info(`Events: ${JSON.stringify(seen, null, 3)}`);
+      console.info(`Events:`);
+      seen && seen.forEach(({ uuid, title, start, end }) => console.info(`${title},\n    Start: ${new Date(start)},\n    End: ${new Date(end)}`))
       return 0;
     } catch(err) {
       console.error(`"DeleteDuplicateEvents()" failed : ${err}`);
@@ -296,19 +297,19 @@ const BuildCalendarFromSheet = () => {
 const _testCalendar = () => {
   const calendar = new CalendarService();
 
-  // // Print all events
-  // const events = calendar.Events;
-  // events.forEach(event => {
-  //   console.info(`Event: ${event.getId()}`);
-  //   console.info(`Description: ${event.getDescription()}`)
-  // });
+  // Print all events
+  const events = calendar.Events;
+  events.forEach(event => {
+    console.info(`Event: ${event.getId()}`);
+    console.info(`Description: ${event.getDescription()}`)
+  });
 
   // // Test Existing
   // let exists = calendar.EventExists(`e9831c32-71b4-472f-a4fb-850504db5579`);
   // console.info(`Event Exists: ${exists}`);
 
   // Test Delete Duplicate
-  calendar.DeleteDuplicateEvents();
+  // calendar.DeleteDuplicateEvents();
 
 //   const event = {
 //     "id": "6f918456-549e-442b-a195-109f75b7bfc0",

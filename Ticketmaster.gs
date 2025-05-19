@@ -64,9 +64,9 @@ class TicketmasterFactory {
    * @private
    */
   _DoParse(artists = [], outputSheet = SHEETS.Events, ) {
-    const cal = new CalendarService();
     if(artists.length < 1) return;
-    artists.forEach(async (artist) => {      
+    const cal = new CalendarService();
+    artists && artists.forEach(async (artist) => {      
       if(ARTISTS_TO_IGNORE.includes(artist)) return;
       await this.ParseResults(artist)
         .then(data => {
