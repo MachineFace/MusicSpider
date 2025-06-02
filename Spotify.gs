@@ -418,7 +418,7 @@ const GetSavedAlbums = async(service) => {
  */
 const RefreshComedians = async() => {
   try {
-    ClearComedianData(SHEETS.Comedians);    // Clear previous artist list
+    _ClearComedianData(SHEETS.Comedians);    // Clear previous artist list
     let comedians = [...COMEDIANS];
     comedians = _FilterArtists(comedians);
     if (comedians.length < 1) throw new Error(`Unable to retrieve a list of comedians.`);

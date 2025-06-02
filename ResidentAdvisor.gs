@@ -58,15 +58,15 @@ class ResidentAdvisorFactory {
       let totalResults = 0;
 
       let options = {
-        method : 'POST',
-        muteHttpExceptions : true,
-        headers : {
-          'Content-Type' : 'application/json', 
-          'Accept' : 'application/json',
-          'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+        "method" : 'POST',
+        "muteHttpExceptions" : true,
+        "headers" : {
+          "contentType" : 'application/json', 
+          "Accept" : 'application/json',
+          "User-Agent" : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
           // 'referer' : 'https://ra.co/events/us/bayarea',
         },
-        payload : this._GetPayload(1, query),
+        "payload" : this._GetPayload(1, query),
       };
       
       const response = await UrlFetchApp.fetch(this.url, options);
@@ -163,7 +163,7 @@ class ResidentAdvisorFactory {
           date: new Date(event[dateKey]),
           url: event[urlKey]?.toString().toUpperCase()
         };
-      };
+      }
 
       // Convert existingArray entries to a map for faster lookup by URL
       const existingMap = new Map(Object.entries(existingArray).map(([key, value]) => {

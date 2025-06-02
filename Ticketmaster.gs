@@ -30,12 +30,8 @@ class TicketmasterFactory {
    */
   async RefreshEvents() {          
     try {
-      const startTime = new Date().getTime();
-      const timeout = 5.9 * 60 * 1000;
-      while (new Date().getTime() - startTime < timeout) {
-        this._DoParse(this.artists, SHEETS.Events);
-        return 0;
-      }
+      this._DoParse(this.artists, SHEETS.Events);
+      return 0;
     } catch (err) { 
       console.error(`"RefreshEvents()" failed: ${err}`);
       return 1;
@@ -47,12 +43,8 @@ class TicketmasterFactory {
    */
   async RefreshComedyEvents() {          
     try {
-      const startTime = new Date().getTime();
-      const timeout = 5.9 * 60 * 1000;
-      while (new Date().getTime() - startTime < timeout) {
-        this._DoParse(this.comedians, SHEETS.ComedyEvents);
-        return 0;
-      }
+      this._DoParse(this.comedians, SHEETS.ComedyEvents);
+      return 0;
     } catch (err) { 
       console.error(`"RefreshComedyEvents()" failed: ${err}`);
       return 1;
@@ -60,38 +52,51 @@ class TicketmasterFactory {
   }
 
   /**
-   * Do Parse
+   * Parse artist data and write to sheet/calendar
    * @private
+   * @param {string[]} artists
+   * @param {Sheet} outputSheet
    */
-  _DoParse(artists = [], outputSheet = SHEETS.Events, ) {
-    if(artists.length < 1) return;
-    const cal = new CalendarService();
-    artists && artists.forEach(async (artist) => {      
-      if(ARTISTS_TO_IGNORE.includes(artist)) return;
-      await this.ParseResults(artist)
-        .then(data => {
-          if(!data) return;
-          Object.entries(data).forEach(([key, { title, acts, venue, city, date, priceRange, url, image, address, }], idx) => {
-            // console.info(`IDX: ${idx}, KEY: ${key}, VALUES: ( Title: ${title}, Acts: ${acts}, Venue: ${venue}, City: ${city}, Date: ${date}, URL: ${url}, IMG: ${image}, Addr.: ${address})`);
-            let exists = SheetService.SearchColumn(outputSheet, `URL`, url);
-            if(exists) return;
-            const event = {
-              id : key,
-              title: title,
-              date: new Date(date),
-              city: city,
-              venue: venue, 
-              priceRange : priceRange,
-              url: url, 
-              image: image,
-              acts: acts.toString(),
-              address: address,
-            }
-            this.WriteEventToSheet(outputSheet, event);   // Write to Sheet
-            cal.CreateCalendarEvent(event);  // Write Calendar Event for new events
-          });
-        });
-    });
+  async _DoParse(artists = [], outputSheet = SHEETS.Events) {
+    try {
+      if (!Array.isArray(artists) || artists.length === 0) return;
+
+      const cal = new CalendarService();
+
+      for (const artist of artists) {
+        if (ARTISTS_TO_IGNORE.includes(artist)) continue;
+
+        const data = await this.ParseResults(artist);
+        if (!data || typeof data !== 'object') continue;
+
+        for (const [id, eventData] of Object.entries(data)) {
+          const { title, acts, venue, city, date, priceRange, url, image, address } = eventData;
+
+          const alreadyExists = SheetService.SearchColumn(outputSheet, 'URL', url);
+          if (alreadyExists) continue;
+
+          const event = {
+            id,
+            title,
+            date: new Date(date),
+            city,
+            venue,
+            priceRange,
+            url,
+            image,
+            acts: Array.isArray(acts) ? acts.join(', ') : acts,
+            address,
+          }
+
+          this.WriteEventToSheet(outputSheet, event);     // Write to Sheet
+          cal.CreateCalendarEvent(event);                 // Write to Calendar
+        }
+      }
+      return 0;
+    } catch (err) {
+      console.error(`Failed to parse artist "${artist}": ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -118,64 +123,80 @@ class TicketmasterFactory {
   }
 
   /**
-   * Search Ticketmaster for a kwarg
+   * Search Ticketmaster for a keyword and parse results
    * @private
+   * @param {string} keyword
+   * @returns {Promise<Object>} Parsed events object
    */
   async ParseResults(keyword = ``) {
     try {
-      if (!keyword) return {};
+      if (!keyword?.trim()) return {};
+
+      const data = await this.SearchTicketmaster(keyword);
+      if (!Array.isArray(data) || data.length === 0) return {};
+
       let events = {};
+      const LowerCase = (value = ``) => value && typeof value == typeof String ? value.toLowerCase() : ``;
+      const IsKeyword = (value = ``, kwarg = ``) => LowerCase(value) === LowerCase(kwarg);
+      const IsArtist = (val = ``) => this.artists.flat().some(artist => LowerCase(artist) === LowerCase(val));
 
-      await this.SearchTicketmaster(keyword)
-        .then(data => {
-          if (!data || data.length === 0 || data.length === undefined) return {};
-          data.forEach((item) => {
-            let id = IDService.createId();
-            let image = this._GetImage(item);
-            let attractions = item?._embedded?.attractions?.map(attraction => attraction.name) || [];
-            
-            for (let i = 0; i < this.artists.length; i++){
-              let artist = Array.isArray(this.artists[i]) ? this.artists[i][0] : this.artists[i];
-              if (attractions.includes(artist) && artist !== keyword) {
-                attractions = attractions.sort((x,y) =>  x === artist ? -1 : y === artist ? 1 : 0 );
-              }
-            }
-            // then move keyword to front of list of acts
-            attractions = attractions.sort((x,y) => { return x === keyword ? -1 : y === keyword ? 1 : 0; });
-            item?._embedded?.venues?.forEach((venue) => { 
+      for (const item of data) {
+        const attractions = item?._embedded?.attractions?.map(a => a.name) || [];
 
-              // some list timeTBA = true, or noSpecificTime = true. if so, use localDate value
-              let date = item.dates.start.timeTBA || item.dates.start.noSpecificTime
-                ? item.dates.start.localDate
-                : item.dates.start.dateTime;
-              let pxs = item?.priceRanges?.[0] || { min : 0, max : 0, };
-              let priceMin = pxs.min > 0 ? pxs.min : 0;
-              let priceMax = pxs.max >= priceMin ? pxs.max : 0;
-              let priceRange = `${priceMin} - ${priceMax}`;
-              let ix = Array.isArray(image?.[0]) ? image[0][0] : image?.[0];
-              let image_url = item.images?.[ix]?.url || ``;
-              let address = `${venue.address?.line1 || ''}, ${venue.city?.name || ''}, ${venue.state?.name || ''}`;
-              // console.info(`venue: ${venueventTitle}`);
-              if (attractions.includes(keyword) || item.name.toUpperCase() === keyword.toUpperCase()) {
-                events[id] = { 
-                  title : item.name,
-                  acts : attractions,
-                  venue : venue.name , 
-                  city : venue.city.name, 
-                  date : date, 
-                  priceRange : priceRange,
-                  url : item.url, 
-                  image : image_url,
-                  address : address,
-                }
-              }
-            });
-          });
-        console.info(Common.PrettifyJson(events));
+        // Reorder attractions: prioritized keyword and known artists
+        const orderedAttractions = [...attractions].sort((a, b) => {
+          return IsKeyword(a, keyword) ? -1 : IsKeyword(b, keyword) ? 1 : IsArtist(a) ? -1 : IsArtist(b) ? 1 : 0;
         });
-      return await events;
+
+        const imageIndex = Array.isArray(this._GetImage(item)?.[0])
+          ? this._GetImage(item)[0][0]
+          : this._GetImage(item)?.[0];
+
+        const imageUrl = item.images?.[imageIndex]?.url || ``;
+
+        const itemNameUpper = item?.name?.toUpperCase() || ``;
+        const keywordUpper = keyword.toUpperCase();
+
+        const isMatch = orderedAttractions.includes(keyword) || itemNameUpper === keywordUpper;
+
+        if (!isMatch) continue;
+
+        for (const venue of item?._embedded?.venues || []) {
+          const id = IDService.createId();
+          const { start } = item.dates || {};
+          const isTBA = start?.timeTBA || start?.noSpecificTime;
+          const date = isTBA ? start?.localDate : start?.dateTime;
+
+          const { min = 0, max = 0 } = item?.priceRanges?.[0] || {};
+          const priceMin = Math.max(min, 0);
+          const priceMax = Math.max(max, priceMin);
+          const priceRange = `${priceMin} - ${priceMax}`;
+
+          const address = [
+            venue.address?.line1,
+            venue.city?.name,
+            venue.state?.name
+          ].filter(Boolean).join(', ');
+
+          events[id] = {
+            title: item.name,
+            acts: orderedAttractions,
+            venue: venue.name || '',
+            city: venue.city?.name || '',
+            date,
+            priceRange,
+            url: item.url || '',
+            image: imageUrl,
+            address,
+          };
+        }
+      }
+
+      console.info(Common.PrettifyJson(events));
+      return events;
+
     } catch (err) {
-      console.error(`"ParseResults()" failed: ${err}`);
+      console.error(`ParseResults() failed: ${err}`);
       return {};
     }
   }
@@ -210,16 +231,19 @@ class TicketmasterFactory {
       console.info(`Searching Ticketmaster for ${keyword}`);
       const url = `${this.ticketmasterUrl}?apikey=${this.ticketmasterID}&latlong=${this.latlong}&radius=${this.radius}&unit=${this.units}&keyword=${encodeURI(keyword)}`;
       const options = {
-        method : "GET",
-        async : true,
-        contentType : "application/json",
-        muteHttpExceptions : false,
+        "method" : "GET",
+        "async" : true,
+        "contentType" : "application/json",
+        "muteHttpExceptions" : false,
       }
-      Sleep(1000);       // Wait a sec
+      Sleep(150);       // Wait a half sec
       const response = await UrlFetchApp.fetch(url, options);
       const responseCode = response.getResponseCode();
-      if (responseCode == 429) throw new Error(`Rate limit from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
-      if (responseCode != 200 && responseCode != 201) throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      if (responseCode == 429) {
+        throw new Error(`Rate limit from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      } else if (![200, 201].includes(responseCode)) {
+        throw new Error(`Bad response from Ticketmaster: ${responseCode} - ${RESPONSECODES[responseCode]}`);
+      }
 
       const content = JSON.parse(response.getContentText());
       if(!content.hasOwnProperty(`_embedded`)) return {}
@@ -238,18 +262,16 @@ class TicketmasterFactory {
   _GetArtistsListFromSheet() {
     try {
       const artistsLength = SHEETS.Artists.getLastRow() - 1 > 1 ? SHEETS.Artists.getLastRow() - 1 : 1;
-      if(artistsLength < 1) throw new Error(`No results. Sheet is empty.`);
+      if(artistsLength < 1) return [];
 
       const ignoreList = [...SHEETS.ArtistsToIgnore.getRange(2, 1, SHEETS.ArtistsToIgnore.getLastRow() - 1, 1).getValues().flat()];
 
-      let artists = SHEETS.Artists
-        .getRange(2, 1, artistsLength, 1)
-        .getValues()
+      let artists = SHEETS.Artists.getRange(2, 1, artistsLength, 1).getValues()
         .flat()
-        .filter(x => !ignoreList.includes(x));
+        .filter(x => !ignoreList.includes(x))
       artists = [...new Set(artists)].sort();
       console.info(`Number of artists: ${artists.length}`);
-      // artists.forEach(x => console.info(x));
+      artists.forEach(x => console.info(x));
       return artists;
     } catch(err) {
       console.error(`"_GetArtistsListFromSheet()" failed: ${err}`);
@@ -327,13 +349,13 @@ const _testSearch = async () => {
   // artists.forEach(async (artist) => {
   //   console.info(Common.PrettifyJson(await t.ParseResults(artist)));
   // });
-  console.info(Common.PrettifyJson(await t.ParseResults(`Justice`)));
+  await t.ParseResults(`Ty Segall`);
 }
 
 const _testThing = async () => {
   const t = new TicketmasterFactory();
-  // t._GetArtistsListFromSheet();
-  await t._DoParse([`Whitney Cummings,`], SHEETS.ComedyEvents);
+  t._GetArtistsListFromSheet();
+  // await t._DoParse([`Whitney Cummings,`], SHEETS.ComedyEvents);
 }
 
 

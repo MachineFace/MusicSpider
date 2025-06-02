@@ -36,7 +36,7 @@ class Emailer {
   constructor({ 
     email : email = `Unknown Email`, 
     message : message = ``,
-    subject: subject = `${SERVICE_NAME} : Event Update`,
+    subject: subject = `${SERVICE_NAME}: Event Update`,
   }) {
     this.email = email;
     this.message = message;
@@ -101,7 +101,7 @@ class Emailer {
       console.info(`Sending  email to ${this.email}.`);
       GmailApp.sendEmail(this.email, this.message.subjectLine, "", {
         htmlBody: this.message.defaultMessage,
-        from: SUPPORT_ALIAS,
+        from: PropertiesService.getScriptProperties().getProperty(`SUPPORT_ALIAS`),
         // cc: this.designspecialistemail,
         // bcc: staff.Chris.email,
         name: SERVICE_NAME,

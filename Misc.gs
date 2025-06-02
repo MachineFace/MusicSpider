@@ -16,7 +16,7 @@ class StringOperations {
    * @return {string} The trimmed result
    */
   static Trim(v = `TestString`) {
-    return this.LeftStringTrim(this.RightStringTrim(v));
+    return StringOperations.LeftStringTrim(StringOperations.RightStringTrim(v));
   }
 
   /**
@@ -25,7 +25,7 @@ class StringOperations {
    * @return {string} The trimmed result
    */
   static LeftStringTrim(s = `TestString`) {
-    return this.ConvertToString(s).replace(/^\s\s*/, "");
+    return StringOperations.ConvertToString(s).replace(/^\s\s*/, "");
   }
 
   /**
@@ -34,7 +34,7 @@ class StringOperations {
    * @return {string} The trimmed result
    */
   static RightStringTrim(s = `TestString`){
-    return this.ConvertToString(s).replace(/\s\s*$/, "");
+    return StringOperations.ConvertToString(s).replace(/\s\s*$/, "");
   } 
 
   /**
@@ -43,7 +43,7 @@ class StringOperations {
    * @return {number} The length
    */
   static StringLength(v = `TestString`) {
-    return this.ConvertToString(v).length;
+    return StringOperations.ConvertToString(v).length;
   }
 
   /**
@@ -53,7 +53,7 @@ class StringOperations {
    * @return {string} The left portion of the string
    */
   static Left(str = `TestString`, optLen) { 
-    return this.Mid(str, 1, optLen);
+    return StringOperations.Mid(str, 1, optLen);
   }
 
   /**
@@ -63,7 +63,7 @@ class StringOperations {
    * @return {string} The right portion of the string
    */
   static Right(str = `TestString`, optLen) {
-    return this.Mid(str, 1 + this.StringLength(str) - this.FixOptional(optLen, this.StringLength(str)));
+    return StringOperations.Mid(str, 1 + StringOperations.StringLength(str) - StringOperations.FixOptional(optLen, StringOperations.StringLength(str)));
   }
 
   /**
@@ -74,7 +74,7 @@ class StringOperations {
    * @return {string} The extracted string
    */
   static Mid(str = `TestString`, optStart, optLen) {
-    let s = this.ConvertToString(str);
+    let s = StringOperations.ConvertToString(str);
     let start = Test.isMissing(optStart) ? 0 : optStart - 1;
     start = start < 0 ? 0 : start;
     let length = Test.isMissing (optLen) ?  StringLength(s) - start + 1 : optLen ;
@@ -90,7 +90,7 @@ class StringOperations {
    * @return {Array.<string>} The split arrray of strings
    */
   static Split(s = `TestString`, optDelim, optLimit) {
-    return this.ConvertToString(s).split(this.FixOptional(optDelim, ","), this.FixOptional(optLimit, -1));
+    return StringOperations.ConvertToString(s).split(StringOperations.FixOptional(optDelim, ","), StringOperations.FixOptional(optLimit, -1));
   }
 
   /**
@@ -100,7 +100,7 @@ class StringOperations {
    * @return {string} Returns a string of the same character repeated n times
    */
   static Repeat(str = `TestString`, count) {
-    return n > 0 ?  Array(count + 1).join(this.ConvertToString(this.FixOptional(str,' '))) : '';
+    return n > 0 ?  Array(count + 1).join(StringOperations.ConvertToString(StringOperations.FixOptional(str,' '))) : '';
   }
 
   /**
@@ -109,7 +109,7 @@ class StringOperations {
    * @return {string} Returns a string of ' ' repeated n times
    */
   static Space(count = 2) {
-    return this.Repeat(` `, count);
+    return StringOperations.Repeat(` `, count);
   }
 
   /**
@@ -118,7 +118,7 @@ class StringOperations {
    * @return {string} item in lower case
    */
   static LowerCase(s = `TestString`) {
-    return this.ConvertToString(s).toLowerCase();
+    return StringOperations.ConvertToString(s).toLowerCase();
   }
 
   /**
@@ -127,7 +127,7 @@ class StringOperations {
    * @return {string} Returns a string converted to upper case
    */
   static UpperCase(s = `TestString`) { 
-    return this.ConvertToString(s).toUpperCase();
+    return StringOperations.ConvertToString(s).toUpperCase();
   }
 
   /**
@@ -158,8 +158,8 @@ class StringOperations {
    */
   static InStr(optStart = 0, inThisString = `TestString`, lookFor = `estS`, optCompare) {
     // TODO optCompare
-    let start = this.FixOptional (optStart, 1);
-    let s = this.Mid(inThisString, start);
+    let start = StringOperations.FixOptional (optStart, 1);
+    let s = StringOperations.Mid(inThisString, start);
     let p = s.indexOf(lookFor);
     return (s && lookFor) ? (p == -1 ? 0 : p+start ): 0;
   }
@@ -173,9 +173,9 @@ class StringOperations {
    */
   static InStrRev(inThisString = `TestString`, lookFor = `estS`, optStart = 0, optCompare) {
     // TODO optCompare
-    let start = this.FixOptional(optStart, -1);
-    let s = this.ConvertToString(inThisString);
-    start = start == -1 ? this.StringLength(s) : start ;
+    let start = StringOperations.FixOptional(optStart, -1);
+    let s = StringOperations.ConvertToString(inThisString);
+    start = start == -1 ? StringOperations.StringLength(s) : start ;
     return (s && lookFor) ? s.lastIndexOf(lookFor, start - 1) + 1 : 0;
   }
 
@@ -185,7 +185,7 @@ class StringOperations {
    * @return {string} item converted to a string
    */
   static ConvertToString(v = `TestString`) {
-    return v === null || Test.isMissing(v) ? ' ' :  v.toString();
+    return v === null || Evaluate.isMissing(v) ? ' ' :  v.toString();
   } 
 
   /**
@@ -206,39 +206,6 @@ class StringOperations {
 
 
 
-
-
-// ---------------------------------------------------------------------------------------------------------------
-/**
- * Date Operations
- */
-class DateOperations {
-  constructor() {
-
-  }
-
-  /**
-   * DateSerial
-   * @param {number} y year
-   * @param {number} m month
-   * @param {number} d day
-   * @return {Date} a date object
-   */
-  static DateSerial(year, month, day) {
-    return new Date(year, month, day);
-  }
-
-  /**
-   * Year
-   * @param {Date} dt a date object
-   * @return {number} the year from a date
-   */
-  static Year(dt) {
-    return dt.getFullYear();
-  }
-
-  
-}
 
 
 /**
@@ -267,7 +234,7 @@ class Evaluate {
    * @return {boolean} true if item is empty
    */
   static isEmpty(v) {
-    return typeof(v) == "string" && v == this.Empty();
+    return typeof(v) == "string" && v == Evaluate.Empty();
   }
 
   /**
@@ -296,7 +263,7 @@ class Evaluate {
    * @return {boolean} true if item is undefined
    */
   static isMissing(x) {
-    return this.isUndefined(x);
+    return Evaluate.isUndefined(x);
   }
 
   /**
@@ -306,7 +273,7 @@ class Evaluate {
    * @return {boolean} true if item is an object
    */
   static isObject(x) {
-    return this.GetType(x) == 'object';
+    return Evaluate.GetType(x) == 'object';
   }
 
   /**
@@ -395,7 +362,7 @@ class Evaluate {
    * @return {boolean} true if array
    */
   static isArray(arg) {
-    return this.toType(arg) == 'array';
+    return Evaluate.toType(arg) == 'array';
   }
 
   /**
@@ -409,6 +376,11 @@ class Evaluate {
   }
 }
 
+
+
+
+
+// ---------------------------------------------------------------------------------------------------------------
 /**
  * Extract City From Address
  * @param {string} address form:(`123 Main St, Springfield, IL 12345`)

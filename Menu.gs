@@ -3,7 +3,7 @@
  * ----------------------------------------------------------------------------------------------------------------
  * Music Spider
  * 
- * Developed by https://github.com/cparsell
+ * Developed by https://github.com/cparsell & https://github.com/MachineFace/
  * I borrowed many core Spotify API functions from https://github.com/Nitemice/spotify-backup-gas
  * 
  * To setup:
@@ -32,7 +32,7 @@
  */
 const BarMenu = () => {
   SpreadsheetApp.getUi()
-    .createMenu(`Music Spider`)
+    .createMenu(SERVICE_NAME)
     .addItem(`Authorize Spotify`, `popupSpotifyAuth`)
     .addItem(`Get Redirect URI for Spotify`, `popupRedirectURI`)
     .addItem(`Refresh Artists`, `popupRefreshArtists`)
@@ -89,7 +89,7 @@ const popupSpotifyAuth = async () => {
     .setWidth(640)
     .setHeight(480);
   ui.showModalDialog(htmlOutput, `${SERVICE_NAME} Connect to Spotify`);
-};
+}
 
 const popupRedirectURI = () => {
   const redirectURI = GetRedirectUri();

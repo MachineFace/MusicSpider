@@ -14,7 +14,6 @@ const RA_QUERY_EVENT_LISTINGS = `query GET_EVENT_LISTINGS($filters: FilterInputD
         endTime 
         title
         contentUrl 
-        attending
         images {
           id 
           filename 
@@ -177,11 +176,9 @@ const RA_QUERY_TEST = `query GET_EVENTS($filters: FilterInputDtoInput, $pageSize
           title 
           date 
           contentUrl 
-          flyerFront 
           images {   
             id   
             filename   
-            alt   
           } 
           venue {  
             id   

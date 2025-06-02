@@ -37,48 +37,41 @@ class SeatGeekFactory {
     try {
       const pageSize = 25;
       let page = 1;
-      const authString = `client_id=${this.clientID}&client_secret=${this.clientSecret}&`;
+      const authString = `client_id=${this.clientID}&client_secret=${this.clientSecret}`;
+      let baseUrl = `${this.eventsUrl}?${authString}&lat=${this.latitude}&lon=${this.longitude}&range=${this.radius}${this.units}`;
 
-      const options = {
-        method : "GET",
-        headers : {
+      const params = {
+        "method" : "GET",
+        "content-Type" : 'application/json',
+        "headers" : {
           "Access-Control-Allow-Origin" : '*',
-          "ContentType" : 'application/json',
         },
-        muteHttpExceptions : true,
-      };
-      
-      let url = `${this.eventsUrl}?${authString}&lat=${this.latitude}&lon=${this.longitude}&range=${this.radius}${this.units}&per_page=${pageSize}&page=${page}`; 
-
-      const response = await UrlFetchApp.fetch(url, options);
-      const responseCode = await response.getResponseCode();
-      if (responseCode != 200 && responseCode != 201) throw new Error(`Response Code ${responseCode} - ${RESPONSECODES[responseCode]}`);
-      
-      const firstPage = await response.getContentText();
-      const data = await JSON.parse(firstPage);
-
-      const totalResults = data?.meta?.total;
-      console.info(`TOTAL: ${totalResults}`);
-      if (totalResults < 1) throw new Error(`_GetData(): No results for ${keyword}`);
-      let results = [...await data?.events];
-  
-      const pages = Math.ceil(totalResults / pageSize);
-      let running = pageSize;
-      for (let pg = 2; pg <= pages; pg++) {
-        let pgSize = pageSize;
-        page = pg;
-        if (totalResults - running < pageSize) pgSize = totalResults - pg;
-        running += pgSize;
-        
-        url = `${this.eventsUrl}?${authString}&lat=${this.latitude}&lon=${this.longitude}&range=${this.radius}${this.units}&per_page=${pageSize}&page=${page}`; 
-
-        nextPage = await UrlFetchApp.fetch(url, options).getContentText();
-        let nextPageParsed = await JSON.parse(nextPage).events;
-        console.info(nextPageParsed);
-        // let newEvents = nextPageParsed?.data?.events;
-        // results.push(...nextPageParsed);
+        "muteHttpExceptions" : true,
       }
-      // Log.Info("getSeatGeekData() results", results);
+
+      const fetchPage = async(page = 0) => {
+        const url = `${baseUrl}&per_page=${pageSize}&page=${page}`;
+        const response = await UrlFetchApp.fetch(url, params);
+        const code = response.getResponseCode();
+        if (![200, 201].includes(code)) {
+          throw new Error(`HTTP ${code}: ${RESPONSECODES[code] || "Unknown error"}`);
+        }
+        return JSON.parse(response.getContentText());
+      }
+      
+      const firstPage = await fetchPage(page);
+      const total = firstData?.meta?.total || 0;
+      if (total < 1) throw new Error(`_GetData(): No results for ${keyword}`);
+
+      const results = [...(firstData.events || [])];
+      const totalPages = Math.ceil(total / pageSize);
+
+      for(page = 2; page <= totalPages; page++) {
+        const nextData = await fetchPage(page);
+        results.push(...(nextData.events || []));
+      }
+
+      console.info(`Fetched ${results.length} events for "${keyword}"`);
       return results;
     } catch (err) {
       console.error(`_GetData() failed: ${err}`);
@@ -93,69 +86,64 @@ class SeatGeekFactory {
    */
   async KeywordSearch(keyword = `Four Tet`) {
     try {
-      const artistList = this._GetArtistList();
+      const artistList = this.GetArtists().map(a => a.toUpperCase());
+      const data = await this._GetData(keyword);
+      if (!Array.isArray(data) || data.length === 0) {
+        console.warn(`No results found for keyword "${keyword}".`);
+        return [];
+      }
 
-      let results = [];
-      await this._GetData(keyword)
-        .then(async(data) => {
-          if (data.length == 0) throw new Error(`No results for ${keyword}`);
-          console.info(`${data.length} results parsed`);
-          for (let i = 0; i < data.length; i++) {
-            const event = data[i];
-            const title = event?.title;
-            const date = new Date(event.datetime_local);
-            const url = event?.url;
-            const venue = event?.venue?.name_v2;
-            const city = event?.venue?.city;
-            const address = event?.venue?.address;
-            let acts = [];
-            for (let index = 0; index < event?.performers?.length; index++) {
-              acts.push(event.performers[index].name);
-            }
+      console.info(`Parsing ${data.length} results for keyword "${keyword}".`);
+      const results = [];
 
-            let newEvent = {
-              date: date,
-              title: title,
-              city: city,
-              venue: venue,
-              url: url,
-              image: "",
-              acts: acts.toString(),
-              address: address,
-            }
-            
-            // Compare list of acts in this result against your list of Artists
-            for (let j = 0; j < artistList.length; j++) {
-              for (let index = 0; index < acts.length; index++) {
-                let res = acts[index];
+      for (const event of data) {
+        const title = event?.title ?? '';
+        const date = new Date(event?.datetime_local);
+        const url = event?.url ?? '';
+        const venue = event?.venue?.name_v2 ?? '';
+        const city = event?.venue?.city ?? '';
+        const address = event?.venue?.address ?? '';
+        const performers = event?.performers || [];
 
-                if(res.toUpperCase() === artistList[j].toString().toUpperCase()) {
-                  console.info(`KeywordSearch(): Found artist: ${artistList[j]}, Event: ${title}`);
-                  let img = event.performers[index].image;
-                  let biggerImg = img.split("huge").join("1500x2000");
-                  newEvent.image = biggerImg;
-                  results.push(newEvent);
-                  break;
-                } 
-              }
-              // check artist against title of this result
-              // if ((title.toString().indexOf(artistList[j].toString()) > -1) || (artistList[j].toString().indexOf(title.toString()) > -1) ) {
-              //   Log.Info(`searchSeatGeek() - Found a match for artist ${artistList[j]} in title: ${title}`);
-              //   results.push(newEvent);
-              // }
-            }
-          }
+        const acts = performers.map(p => p.name);
+        const upperActs = acts.map(name => name.toUpperCase());
+
+        // Match any act to known artist list
+        const matchedIndex = upperActs.findIndex(act => artistList.includes(act));
+        if (matchedIndex === -1) continue;
+
+        const image = performers[matchedIndex]?.image?.replace('huge', '1500x2000') || '';
+
+        results.push({
+          title,
+          date,
+          city,
+          venue,
+          url,
+          image,
+          acts: acts.join(', '),
+          address,
         });
+
+        console.info(`Matched artist "${acts[matchedIndex]}" in event "${title}".`);
+      }
+
+      console.info(`KeywordSearch() → ${results.length} matching events found.`);
       return results;
     } catch (err) {
       console.error(`KeywordSearch() failed: ${err}`);
-      return 1;
+      return [];
     }
   }
 
+  /**
+   * Search All Artists
+   * @param {Array} artists
+   * @returns {Array} events
+   */
   async SearchAllArtists(artists = []) {
-    artists = artists ? artists : this._GetArtistList();
     try {
+      artists = artists ? artists : this.GetArtists();
       let events = [];
       artists.forEach(async(artist) => {
         const result = await this.KeywordSearch(artist);
@@ -177,10 +165,14 @@ class SeatGeekFactory {
     }
   }
 
+  /**
+   * Main Entry Point
+   * @returns {Array} events
+   */
   async Main() {
     try {
       let events = [];
-      const artists = [...this._GetArtistList()];
+      const artists = this.GetArtists();
       artists.forEach(async (artist) => {
         await this.KeywordSearch(artist).then(data => {
           console.info(data);
@@ -210,17 +202,21 @@ class SeatGeekFactory {
    * Get Artist List
    * @private
    */
-  _GetArtistList() {
+  GetArtists() {
     try {
-      let artists = GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
-      if (artists.length < 1) throw new Error(`Unable to retrieve a list of artists`);
-      let filtered = [];
-      artists.forEach(artist => {
-        if (!ARTISTS_TO_IGNORE.includes(artist)) filtered.push(artist);
-      });
-      return [...new Set(filtered)].sort();
+      let input = SheetService.GetColumnDataByHeader(SHEETS.Artists, ARTIST_SHEET_HEADERNAMES.artists);
+      let artists = Array.isArray(input) ? input : [];
+
+      let filtered = artists
+        .filter(Boolean)
+        .filter(artist => typeof artist === 'string' && artist.trim() !== '')  // Ensure valid strings
+        .filter(artist => !ARTISTS_TO_IGNORE.includes(artist));                // Exclude ignored artists
+
+      if (filtered.length < 1) return [];
+      let singular = [...new Set(filtered)].sort();
+      return singular;
     } catch(err) {
-      console.error(`"_GetArtistList()" failed : ${err}`);
+      console.error(`"GetArtists()" failed : ${err}`);
       return 1;
     }
   }
@@ -283,6 +279,7 @@ class SeatGeekFactory {
 
 const _testSeatGeek = async () => {
   const sf = new SeatGeekFactory();
+  // sf.GetArtists();
   await sf.Main();
 } 
 

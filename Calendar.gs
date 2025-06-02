@@ -1,5 +1,7 @@
 
-
+/**
+ * Calendar Service
+ */
 class CalendarService {
   constructor() {
     /** @private */

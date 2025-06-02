@@ -1,6 +1,5 @@
 
 const SERVICE_NAME = `Music Spider`;
-const SUPPORT_ALIAS = GmailApp.getAliases()[0];
 
 const monthNames = [`Jan`, `Feb`, `Mar`, `Apr`, `May`, `June`, `July`, `Aug`, `Sept`, `Oct`, `Nov`, `Dec`, ];
 const dayNames = [`Sun`, `Mon`, `Tues`, `Wed`, `Thur`, `Fri`, `Sat`];
