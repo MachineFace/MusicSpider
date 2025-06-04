@@ -55,14 +55,17 @@ const popupCreateNewID = () => {
   let thisRow = thisSheet.getActiveRange().getRow();
   const newID = new IDService().id;
 
-  if(thisSheetName != SHEETS.Artists && thisSheetName != SHEETS.Comedians && thisSheetName != SHEETS.Logger) {
+  // Check for correct sheet
+  if(![SHEETS.Events.getSheetName(), SHEETS.ComedyEvents.getSheetName()].includes(thisSheetName)) {
     const a = ui.alert(
       `${SERVICE_NAME}: Incorrect Sheet!`,
-      `Please select from a valid sheet (eg. Laser Cutter or Fablight). Select one cell in the row and a ticket will be created.`,
+      `Please select a valid sheet (eg. "Events").\nSelect one cell in the row and a uuid will be created.`,
       Browser.Buttons.OK,
     );
     if(a === ui.Button.OK) return;
-  } 
+  }
+
+  // Check for valid ID 
   const { name, id } = SheetService.GetRowData(thisSheet, thisRow);
   if(IDService.isValid(id)) {
     const a = ui.alert(
@@ -72,6 +75,8 @@ const popupCreateNewID = () => {
     );
     if(a === ui.Button.OK) return;
   }
+
+  // Set value
   SheetService.SetByHeader(thisSheet, HEADERNAMES.id, thisRow, newID);
   const a = ui.alert(
     SERVICE_NAME,
@@ -79,9 +84,11 @@ const popupCreateNewID = () => {
     ui.ButtonSet.OK
   );
   if(a === ui.Button.OK) return;
-};
+}
 
-
+/**
+ * Auth Spotify
+ */
 const popupSpotifyAuth = async () => {
   let ui = await SpreadsheetApp.getUi();
   const sps = new SpotifyService();
@@ -91,6 +98,9 @@ const popupSpotifyAuth = async () => {
   ui.showModalDialog(htmlOutput, `${SERVICE_NAME} Connect to Spotify`);
 }
 
+/**
+ * Redirect URI
+ */
 const popupRedirectURI = () => {
   const redirectURI = GetRedirectUri();
   const ui = SpreadsheetApp.getUi();
@@ -110,7 +120,7 @@ const popupRedirectURI = () => {
  */
 const popupRefreshArtists = async () => {
   const ui = await SpreadsheetApp.getUi();
-  const count = await new SpotifyService().RefreshArtists();
+  const count = await RefreshArtists();
   ui.alert(
     SERVICE_NAME,
     `Retrieving New Artists\nTotal : ${count}`,
@@ -131,6 +141,9 @@ const popupRefreshEvents = async () => {
   );
 }
 
+/**
+ * Refresh Comedy Events
+ */
 const popupRefreshComedyEvents = async () => {
   const ui = await SpreadsheetApp.getUi();
   const count = await new TicketmasterFactory().RefreshComedyEvents()
@@ -141,6 +154,9 @@ const popupRefreshComedyEvents = async () => {
   );
 }
 
+/**
+ * Send Email
+ */
 const popupSendEmail = () => {
   sendEmail();
   const ui = SpreadsheetApp.getUi();
@@ -152,11 +168,7 @@ const popupSendEmail = () => {
 }
 
 
-const main = async () => {
-  await refreshArtists();
-  // await refreshEvents();
-  // await sendEmail();
-}
+
 
 
 

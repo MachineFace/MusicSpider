@@ -381,25 +381,116 @@ class Evaluate {
 
 
 // ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Compare 2 Events
+ * @param {Object} event A
+ * @param {Object} event B
+ * @param {number} threshold (0 to 1)
+ * @returns {Object} comparison
+ */
+const CompareEvents = (eventA = {}, eventB = {}, threshold = 0.66) => {
+  try {
+
+    // Event A
+    const { title: titleA, venue: venueA, date: dateA, url: urlA, acts: actsA, } = eventA;
+
+    // Event B
+    const { title: titleB, venue: venueB, date: dateB, url: urlB, acts: actsB, } = eventB;
+
+    // Step 1: Date Comparison
+    const d1 = Utilities.formatDate(new Date(dateA), "PST", "yyyy/MM/dd");
+    const d2 = Utilities.formatDate(new Date(dateB), "PST", "yyyy/MM/dd");
+    const dateScore = Common.ScoreStringSimilarity(d1, d2);
+    const dateThreshold = dateScore > threshold;
+
+    // Step 2: Compare URLs
+    const urlScore = Common.ScoreStringSimilarity(urlA, urlB);         // > 0.66
+    const urlThreshold = urlScore >= 0.95;
+
+    // Step 3: Compare Venue Names
+    const venueScore = Common.ScoreStringSimilarity(venueA, venueB);   // > 0.5;
+    const venueThreshold = venueScore > threshold;
+
+    // Step 4: Compare Event Titles
+    const titleScore = Common.ScoreStringSimilarity(titleA, titleB);   // > 0.66;
+    const titleThreshold = titleScore > threshold;
+
+    // Step 5: Compare Acts
+    const actScore = Common.ScoreStringSimilarity(actsA, actsB);       // > 0.66;
+    const actsThreshold = actScore > threshold;
+
+    // Step 6: Average Weights
+    const average = StatisticsService.ArithmeticMean([ titleScore, dateScore, actScore, venueScore, urlScore, ]);
+    const verdict = average > threshold;
+    console.info(`
+      TitleA: ${titleA} -----> TitleB: ${titleB} -----> Score: ${titleScore},
+      DateA: ${dateA}   -----> DateB:  ${dateB}  -----> Score ${dateScore}, 
+      ActsA: ${actsA}   -----> ActsB:  ${actsB}  -----> Score: ${actScore}, 
+      VenueA: ${venueA} -----> VenueB: ${venueB} -----> Score: ${venueScore},
+      Average Score: (${average}) > Threshold (${threshold}) = ${verdict},
+    `);
+
+    return {
+      dateScore : dateScore,
+      dateThreshold : dateThreshold,
+      urlScore : urlScore,
+      urlThreshold : urlThreshold,
+      venueScore : venueScore,
+      venueThreshold : venueThreshold,
+      titleScore : titleScore,
+      titleThreshold : titleThreshold,
+      actScore : actScore,
+      actsThreshold : actsThreshold,
+      averageScore: average,
+      verdict : verdict,
+    }
+
+  } catch (err) {
+    console.error(`"CompareEvents()" failed: ${err}`);
+    return {}; 
+  }
+}
+
+/**
+ * Standardize Address
+ * Split addresses at the first comma or semicolon and replace 'St.' or 'Street' with 'St'
+ * Returns something like: 1290 Sutter Street
+ * This reduces false negatives if Ticketmaster shows CA but another shows it as California
+ * @param {string} address
+ * @returns {string} standardized address
+ * @private
+ */
+const StandardizeAddress = (address = ``) => {
+  try {
+    if(!address) throw new Error(`Missing address.`);
+    const stdAddress = address
+      .replace(/(Avenue|Ave[.]?)/g, "Ave")
+      .replace(/(Street|St[.]?)/g, "St")
+      .replace(/(Drive|Dr[.]?)/g, "Dr")
+      .replace(/(Road|Rd[.]?)/g, "Rd");
+    console.info(stdAddress);
+    return stdAddress;
+  } catch(err) {
+    console.error(`"StandardizeAddress()" failed: ${err}`);
+    return 1;
+  }
+}
+
 /**
  * Extract City From Address
  * @param {string} address form:(`123 Main St, Springfield, IL 12345`)
  * @return {string} city
  */
-const ExtractCityFromAddress = (address) => {
+const ExtractCityFromAddress = (address = ``) => {
   try {
     let match = [];
     address = address ? address : `123 Main St, San Francisco, CA 12345`;
-    const cityPattern1 = /,\s*([^,]+),\s*([A-Z]{2})\s*\d{5}$/;
-    const cityPattern2 = /([\w\s\.\-]+),\s?(\d{5})\s([\w\s\-]+),\s([\w\s]+)/;
-    const cityPattern3 = /(?:\d{5}|\d{4}|\d{3,6})\s+([a-zA-Z\u00C0-\u017F\s\-]+)(?:,\s?[a-zA-Z\s]+)?$/;
-    const cityPattern4 = /(\d+)\s([\w\s]+);\s([\w\s]+),\s([A-Z]{1,2}\d[A-Z\d]?\s\d[A-Z]{2});\s([\w\s]+);\s([\w\s]+)$/
-    const cityPattern5 = /([\w\s]+),\s([\w\s\d]+);\s([\w\s]+);\s([\w\s]+)$/
-    match = address.match(cityPattern1);
-    if(!match) match = address.match(cityPattern2);
-    if(!match) match = address.match(cityPattern3);
-    if(!match) match = address.match(cityPattern4);
-    if(!match) match = address.match(cityPattern5);
+    match = address.match(/,\s*([^,]+),\s*([A-Z]{2})\s*\d{5}$/);
+    if(!match) match = address.match(/([\w\s\.\-]+),\s?(\d{5})\s([\w\s\-]+),\s([\w\s]+)/);
+    if(!match) match = address.match(/(?:\d{5}|\d{4}|\d{3,6})\s+([a-zA-Z\u00C0-\u017F\s\-]+)(?:,\s?[a-zA-Z\s]+)?$/);
+    if(!match) match = address.match(/(\d+)\s([\w\s]+);\s([\w\s]+),\s([A-Z]{1,2}\d[A-Z\d]?\s\d[A-Z]{2});\s([\w\s]+);\s([\w\s]+)$/);
+    if(!match) match = address.match(/([\w\s]+),\s([\w\s\d]+);\s([\w\s]+);\s([\w\s]+)$/);
     else if(!match) match = [ RESIDENT_ADVISOR_REGIONS[218] ];
     const matchLength = match.length != null ? match.length : 2;
     const city = match[matchLength - 2];
@@ -414,9 +505,12 @@ const ExtractCityFromAddress = (address) => {
 const _testMatch = () => {
   ExtractCityFromAddress(`123 Main St, Springfield, IL 12345`);
   ExtractCityFromAddress(`Skalitzer str. 114, 10999 Berlin, Germany`);
-  ExtractCityFromAddress(`539 39th st. #423, Oakland, CA 94606`);
   ExtractCityFromAddress(`22 Jamaica St; Glasgow, G1 4QD; Scotland; United Kingdom`);
   ExtractCityFromAddress(`De Ruyterkade, Pier 14; Binnenstad Amsterdam; Netherlands`);
+  StandardizeAddress(`123 Main St, Springfield, IL 12345`);
+  StandardizeAddress(`Skalitzer str. 114, 10999 Berlin, Germany`);
+  StandardizeAddress(`22 Jamaica St; Glasgow, G1 4QD; Scotland; United Kingdom`);
+  StandardizeAddress(`De Ruyterkade, Pier 14; Binnenstad Amsterdam; Netherlands`);
 }
 
 

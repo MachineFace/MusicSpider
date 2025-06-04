@@ -9,6 +9,41 @@ class Common {
   }
 
   /**
+   * Standardize Address
+   * Split addresses at the first comma or semicolon and replace 'St.' or 'Street' with 'St'
+   * Returns something like: 1290 Sutter Street
+   * This reduces false negatives if Ticketmaster shows CA but another shows it as California
+   * @param {string} address
+   * @returns {string} standardized address
+   */
+  static StandardizeAddress(address = ``) {
+    try {
+      if(!address) throw new Error(`Missing address.`);
+      return address
+        .replace(/(Avenue|Ave[.]?)/g, "Ave")
+        .replace(/(Street|St[.]?)/g, "St")
+        .replace(/(Drive|Dr[.]?)/g, "Dr")
+        .replace(/(Road|Rd[.]?)/g, "Rd");
+    } catch(err) {
+      console.error(`"StandardizeAddress()" failed: ${err}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Normalization Function
+   */
+  static StringNormalize(str = ``) {
+    return str
+      .toLowerCase()
+      .normalize('NFD')                       // Unicode normalization
+      .replace(/[\u0300-\u036f]/g, '')        // Strip accents
+      .replace(/[^a-z0-9\s]/gi, '')           // Remove special chars
+      .replace(/\s+/g, ' ')                   // Normalize whitespace
+      .trim();
+  }
+
+  /**
    * Parse URL path parameters
    * @param {request} request
    * @returns {string} path
@@ -19,6 +54,68 @@ class Common {
   }
 
   /**
+   * Score String Similarity
+   * Bernoulli-weighted string similarity scorer
+   * @param {string} strA - First string to compare
+   * @param {string} strB - Second string to compare
+   * @returns {number} - Similarity score between 0 and 1
+   */
+  static ScoreStringSimilarity(strA = ``, strB = ``) {
+    if (typeof strA !== 'string' || typeof strB !== 'string') return 0;
+
+    // Normalization Function
+    function StringNormalize(str = ``) {
+      return str
+        .toLowerCase()
+        .normalize('NFD')                       // Unicode normalization
+        .replace(/[\u0300-\u036f]/g, '')        // Strip accents
+        .replace(/[^a-z0-9\s]/gi, '')           // Remove special chars
+        .replace(/\s+/g, ' ')                   // Normalize whitespace
+        .trim();
+    }
+
+    // Step 1: Sanitize & Normalize
+    const a = StringNormalize(strA);
+    const b = StringNormalize(strB);
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+
+    // Step 2: Token Jaccard Similarity
+    const tokensA = new Set(a.split(' '));
+    const tokensB = new Set(b.split(' '));
+    const intersection = [...tokensA].filter(x => tokensB.has(x)).length;
+    const union = new Set([...tokensA, ...tokensB]).size;
+    const jaccard = union === 0 ? 0 : intersection / union;
+
+    // Levenshtein Distance Function
+    function Levenshtein(s = ``, t = ``) {
+      const dp = Array.from({ length: s.length + 1 }, (_, i) => [i]);
+      for (let j = 1; j <= t.length; j++) dp[0][j] = j;
+
+      for (let i = 1; i <= s.length; i++) {
+        for (let j = 1; j <= t.length; j++) {
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + (s[i - 1] === t[j - 1] ? 0 : 1)
+          );
+        }
+      }
+      return dp[s.length][t.length];
+    }
+
+    // Step 3: Levenshtein Distance Normalized
+    const maxLen = Math.max(a.length, b.length);
+    const editDist = Levenshtein(a, b);
+    const editSimilarity = maxLen === 0 ? 0 : 1 - editDist / maxLen;
+
+    // Step 4: Weighted Blend (Bernoulli-esque weighting)
+    // Emphasize strong exact matches over weak partials
+    const score = (0.7 * jaccard + 0.3 * editSimilarity) ** 2; // squaring rewards strong matches
+    return Math.max(0, Math.min(1, parseFloat(score.toFixed(4))));
+  }
+
+  /**
    * Strip spaces, no-break spaces, zero-width spaces, & zero-width no-break spaces
    * @param {string} string
    * @returns {string} string
@@ -26,6 +123,29 @@ class Common {
   static StringTrim(string) {
     const pattern = /(^[\s\u00a0\u200b\uFEFF]+)|([\s\u00a0\u200b\uFEFF]+$)/g;
     return string.replace(pattern, ``);
+  }
+
+  /**
+   * Levenshtein Distance Normalized
+   * String Comparison between 2 strings
+   * @param {string} string a
+   * @param {string} string b
+   * @returns {Array} comparisons
+   */
+  static StringLevenshteinDistanceNormalization(s = ``, t = ``) {
+    const dp = Array.from({ length: s.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= t.length; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= s.length; i++) {
+      for (let j = 1; j <= t.length; j++) {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + (s[i - 1] === t[j - 1] ? 0 : 1)
+        );
+      }
+    }
+    return dp[s.length][t.length];
   }
 
   /**

@@ -343,6 +343,9 @@ class TicketmasterFactory {
 const refreshEvents = async () => await new TicketmasterFactory().RefreshEvents();
 const refreshComedyEvents = async () => await new TicketmasterFactory().RefreshComedyEvents();
 
+
+
+
 const _testSearch = async () => {
   const t = new TicketmasterFactory();
   // const artists = t._GetArtistsListFromSheet().slice(25, 50);

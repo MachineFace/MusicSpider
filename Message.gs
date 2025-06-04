@@ -6,8 +6,8 @@
  */
 class CreateMessage {
   constructor({
-    events : events,
-    comedyEvents : comedyEvents,
+    events : events = {},
+    comedyEvents : comedyEvents = {},
   }) {
     /** @private */
     this.events = events;
@@ -24,7 +24,8 @@ class CreateMessage {
     let msgSubj = `${SERVICE_NAME} - `;
     if (Object.keys(allEvents).length === 0) return ``;
 
-    Object.entries(allEvents).forEach(([key, { id, title, venue, city, date, url, image, acts, address, sheetName, row, }], idx) => {
+    Object.entries(allEvents).forEach(([key, entry], idx) => {
+      let { id, title, venue, city, date, priceRange, url, image, acts, address } = entry;
       if (!acts) msgSubjRaw.push(title);
       const split = acts.split(',');
       msgSubjRaw.push(split[0]);
@@ -37,98 +38,88 @@ class CreateMessage {
     return msgSubj;
   }
 
+  /**
+   * Generate a styled HTML email message with music and comedy events
+   * @returns {string} - Full HTML email string
+   */
   get defaultMessage() {
-    let message = ``;
-    message += this.style;
-    message += `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-spacing:0px;padding:0;margin:0;width:100%;background-repeat:repeat;background-position:center top; background-color:#f8f8f8;"`;
-    message += `<tbody><tr style="border-collapse: collapse;"><td valign="top" style="padding: 0;Margin: 0;">`
-    message += `<table class="tg" align="center" style="border-collapse: collapse;border-spacing: 0px;background-color: #ffffff;width: 750px;"><thead>`;
-    message += `<tr><td colspan=2><div style="text-align: center;"><br/><br/>`
-    message += `<a href="https://github.com/MachineFace/MusicSpider">`
-    message += `<img src="https://i.postimg.cc/HkVc4bCq/music-spider-logo-nobg.png" height="22%" width="22%"/></a><br>`;
-    message += `<span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;">`;
-    message += `<strong>fucking ${SERVICE_NAME.toLowerCase()}</strong><br><br></span></div></td></tr></thead>`;
+    let html = [];
 
-    // ARTIST TABLE
-    message += `<span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;"><strong>Music</strong><br><br></span>`;
-    message += `<hr>`;
-    message += `<br/>`;
-    message += `<tbody>`
+    // Function for building Table
+    function BuildTableSection(label = ``, events = {}) {
+      let rows = [];
 
-    Object.entries(this.events).forEach(([key, { id, date, city, venue, url, image, title, acts }], idx) => {
-      let actsArray = [...new Set(acts.split(','))]
-        .map(x => x.toUpperCase());
+      events.forEach((entry, idx) => {
+        const { title, venue, city, date, priceRange, url, image, acts } = entry;
+        const actsArray = [...new Set(acts.split(','))].map(x => x.trim().toUpperCase());
 
-      const eDate = new Date(date);
-      const eventDay = eDate.getDay(), eventDayNum = eDate.getDate(), eventMonth = eDate.getMonth(), eventYear = eDate.getFullYear();
-      const eventTime = Utilities.formatDate(eDate, "PST", "h a");
-      
-      if (Common.isEven(idx)) message += `<tr>`;   // Start a new table row every even event
-      message += `<td class="tg-0lax" style="height:300px;vertical-align:top;"><div style="text-align: left;margin-left: 10px;">`;
-      message += `<div class="" style=""><a href='${url}'>`;
-      message += `<img src='${image}' class="" style="width:90%;float:center;width:350px;height:200px;object-fit:cover;"/></div>`;
-      message += `<span style="font-family: Averta,Helvetica Neue,Helvetica,Arial,sans-serif;">`;
-      message += `<a href='${url}' style="text-decoration:none;"><span style="color:#44494c;font-size:20px;"><strong>${title}</strong></span></a><br/>`;
-      
-      if (actsArray.length > 1 || !title.match(actsArray[0])) {
-        actsArray.forEach((act, index) => {
-          if (index == 0) message += `with `;
-          if (!title.match(act) && index < 6) {
-            message += (index == acts.length - 1) ?  `${act}` : `${act}, `;
-          }
-          if (index == 6) message += `...` // truncate list if longer than 5
-        })
-        message += `<br/>`
-      }
-      message += `<span style="color:#696969;font-size:12px;font-family:georgia,times,times new roman,serif;">at ${venue}, ${city}<br/> `;
-      message += `<strong>${dayNames[eventDay]}, ${monthNames[eventMonth]} ${eventDayNum} ${eventYear}</strong> ${eventTime}</span></span></div>`;
-      message += `<br/></td>`;
-      if (Common.isOdd(idx)) message += `</tr><br/>`; // End table row every odd event
-    });
-    message += `<br/></tbody></table>`; 
-    
+        const eDate = new Date(date);
+        const eventTime = Utilities.formatDate(eDate, 'PST', 'h a');
+        const eventPriceRange = priceRange ? `$${priceRange}` : `$??`;
 
-    // COMEDY TABLE
-    message += `<table class="tg" align="center" style="border-collapse: collapse;border-spacing: 0px;background-color: #ffffff;width: 750px;"><thead>`;
-    message += `<span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;"><strong>Comedy</strong><br><br></span>`;
-    message += `<hr>`;
-    message += `<tbody>`
-    // iterate through list of events
-    Object.entries(this.comedyEvents).forEach(([key, { id, date, city, venue, url, image, title, acts }], idx) => {
-      let actsArray = [...new Set(acts.split(','))]
-        .map(x => x.toUpperCase());
+        const formattedDate = `${dayNames[eDate.getDay()]}, ${monthNames[eDate.getMonth()]} ${eDate.getDate()} ${eDate.getFullYear()}`;
 
-      const eDate = new Date(date);
-      const eventDay = eDate.getDay(), eventDayNum = eDate.getDate(), eventMonth = eDate.getMonth(), eventYear = eDate.getFullYear();
-      const eventTime = Utilities.formatDate(eDate, "PST", "h a");
-      
-      if (Common.isEven(idx)) message += `<tr>`;    // Start a new table row every even event
-      message += `<td class="tg-0lax" style="height:300px;vertical-align:top;"><div style="text-align: left;margin-left: 10px;">`;
-      message += `<div class="" style=""><a href='${url}'>`;
-      message += `<img src='${image}' class="" style="width:90%;float:center;width:350px;height:200px;object-fit:cover;"/></div>`;
-      message += `<span style="font-family: Averta,Helvetica Neue,Helvetica,Arial,sans-serif;">`;
-      message += `<a href='${url}' style="text-decoration:none;"><span style="color:#44494c;font-size:20px;"><strong>${title}</strong></span></a><br/>`;
-      
-      if (actsArray.length > 1 || !title.match(actsArray[0])) {
-        actsArray.forEach((act, index) => {
-          if (index == 0) message += `with `;
-          if (!title.match(act) && index < 6) {
-            message += (index == acts.length - 1) ?  `${act}` : `${act}, `;
-          }
-          if (index == 6) message += `...` // truncate list if longer than 5
-        })
-        message += `<br/>`
-      }
-      message += `<span style="color:#696969;font-size:12px;font-family:georgia,times,times new roman,serif;">at ${venue}, ${city}<br/> `;
-      message += `<strong>${dayNames[eventDay]}, ${monthNames[eventMonth]} ${eventDayNum} ${eventYear}</strong> ${eventTime}</span></span></div>`;
-      message += `<br/></td>`;
-      if (Common.isOdd(idx)) message += `</tr><br/>`; // End table row every odd event
-    });
-    message += `<br/></tbody></table>`; 
+        const actsList = actsArray.length > 1 || !title.match(actsArray[0])
+          ? 'with ' + actsArray.slice(0, 6).filter(act => !title.match(act)).join(', ') + (actsArray.length > 6 ? '...' : '')
+          : '';
 
-    message += `</td></tr></tbody></table>`; // End of Document table
+        const cell = `
+          <td class="tg-0lax" style="height:300px;vertical-align:top;">
+            <div style="text-align: left;margin-left: 10px;">
+              <div><a href='${url}'><img src='${image}' style="width:350px;height:200px;object-fit:cover;"/></a></div>
+              <span style="font-family: Averta, Helvetica Neue, Helvetica, Arial, sans-serif;">
+                <a href='${url}' style="text-decoration:none;">
+                  <span style="color:#44494c;font-size:20px;"><strong>${title}</strong></span>
+                </a><br/>
+                ${actsList ? actsList + '<br/>' : ''}
+                <span style="color:#696969;font-size:12px;font-family:georgia, times, times new roman, serif;">
+                  at ${venue}, ${city}<br/>
+                  <strong>${formattedDate}</strong> ${eventTime}<br/>
+                  <h4>${eventPriceRange}</h4>
+                </span>
+              </span>
+            </div><br/>
+          </td>`;
 
-    return message; 
+        if (idx % 2 === 0) rows.push('<tr>' + cell);
+        else rows[rows.length - 1] += cell + '</tr>';
+      });
+
+      return `
+        <table class="tg" align="center" style="border-collapse:collapse;border-spacing:0;background-color:#ffffff;width:750px;">
+          <thead>
+            <tr><td colspan="2">
+              <span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;"><strong>${label}</strong></span><hr><br/>
+            </td></tr>
+          </thead>
+          <tbody>
+            ${rows.join('\n')}
+          </tbody>
+        </table>`;
+    }
+
+    html.push(`
+      ${this.style}
+      <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-spacing:0;width:100%;background-color:#f8f8f8;">
+        <tbody>
+          <tr><td valign="top">
+            <table align="center" style="border-collapse:collapse;border-spacing:0;background-color:#ffffff;width:750px;">
+              <thead>
+                <tr><td colspan="2" style="text-align:center;padding:40px 0;">
+                  <a href="https://github.com/MachineFace/MusicSpider">
+                    <img src="https://i.postimg.cc/HkVc4bCq/music-spider-logo-nobg.png" width="22%" height="22%"/></a><br/>
+                  <span style="font-family:helvetica, sans-serif;font-size:30px;color:#e9e9e9;">
+                    <strong>fucking ${SERVICE_NAME.toLowerCase()}</strong><br><br/>
+                  </span>
+                </td></tr>
+              </thead>
+            </table>`);
+
+    html.push(BuildTableSection('Music', Object.values(this.events)));
+    html.push(BuildTableSection('Comedy', Object.values(this.comedyEvents)));
+    html.push(`</td></tr></tbody></table>`);
+
+    return html.join('\n');
   }
 
   /** @private */

@@ -624,8 +624,7 @@ class StatisticsService {
       else values = distribution;
 
       const mean = values.reduce((a, b) => a + b) / n;
-      console.warn(`ARITHMETIC MEAN: ${mean}`);
-      return mean.toFixed(3);
+      return mean;
     } catch(err) {
       console.error(`"ArithmeticMean()" failed : ${err}`);
       return 1;
@@ -1220,7 +1219,7 @@ class StatisticsService {
       // due to floating-point arithmetic, values in the table with 4 significant figures 
       // can nevertheless end up as repeating fractions when they're computed here.
       const cumulative = Math.round((1 - standardNormalTable[index]) * 1e4) / 1e4;
-      console.info(`Cumulative Standard Normal Probability: ${cumulative}`);
+      // console.info(`Cumulative Standard Normal Probability: ${cumulative}`);
       return cumulative;
     } catch(err) {
       console.error(`"CumulativeStdNormalProbability()" failed: ${err}`);
@@ -1250,7 +1249,6 @@ class StatisticsService {
       });
 
       items.sort((first, second) => second[1] - first[1]);
-      console.warn(items);
       return items;  
     } catch(err) {
       console.error(`"Distribution()" failed: ${err}`);
@@ -1550,7 +1548,6 @@ class StatisticsService {
 
       const product = values.reduce((product, num) => product * num, 1);
       const geometricMean = Math.pow(product, 1 / values.length);
-      console.warn(`GEOMETRIC MEAN: ${geometricMean}`);
       return geometricMean;
     } catch(err) {
       console.error(`"GeometricMean()" failed : ${err}`);
@@ -1603,7 +1600,6 @@ class StatisticsService {
       else values = numbers;
 
       const harmonicMean = values.length / values.reduce((a, b) => a + 1 / b, 0);
-      console.warn(`HERMONIC MEAN: ${harmonicMean}`);
       return harmonicMean;
     } catch(err) {
       console.error(`"HarmonicMean()" failed : ${err}`);
@@ -2063,7 +2059,6 @@ class StatisticsService {
           (sortedNumbers[middle - 1] + sortedNumbers[middle]) / 2 :
           sortedNumbers[middle];
 
-      console.warn(`MEDIAN: ${median}`);
       return median;
     } catch(err) {
       console.error(`"Median()" failed : ${err}`);
@@ -2402,7 +2397,6 @@ class StatisticsService {
       else values = numbers;
 
       const quadraticMean = Math.sqrt(values.reduce((a, b) => a + b * b, 0) / values.length);
-      console.warn(`QUADRATIC MEAN: ${quadraticMean}`);
       return quadraticMean;
     } catch(err) {
       console.error(`"QuadraticMean()" failed : ${err}`);
@@ -3154,11 +3148,9 @@ class StatisticsService {
       else values = numbers;
 
       const mean = StatisticsService.GeometricMean(values);
-      console.warn(`Mean = ${mean}`);
 
       const s = Math.sqrt(values.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / values.length);
       const standardDeviation = Math.abs(Number(s - mean).toFixed(3)) || 0;
-      console.warn(`Standard Deviation: +/-${standardDeviation}`);
       return standardDeviation;
     } catch(err) {
       console.error(`"StandardDeviation()" failed : ${err}`);
