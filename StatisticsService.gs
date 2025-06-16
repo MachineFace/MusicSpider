@@ -541,7 +541,9 @@ class StatisticsService {
    * normal distribution, and by extension, any normal distribution.
    */
   static get StandardNormalTable() {
-    const cumulativeDistribution = (z) => {
+
+    // Cumulative Distribution
+    function CumulativeDistribution(z = 0) {
       // 15 iterations are enough for 4-digit precision
       let sum = z;
       for (let i = 1; i < 15; i++) {
@@ -552,12 +554,18 @@ class StatisticsService {
       const SQRT_2PI = Math.sqrt(2 * Math.PI);
       return ( Math.round((0.5 + (sum / SQRT_2PI) * Math.exp((-z * z) / 2)) * 1e4) / 1e4 );
     }
-    const standardNormalTable = [];
-    for (let z = 0; z <= 3.09; z += 0.01) {
-      standardNormalTable.push(cumulativeDistribution(z));
+
+    try {
+      const standardNormalTable = [];
+      for (let z = 0; z <= 3.09; z += 0.01) {
+        standardNormalTable.push(CumulativeDistribution(z));
+      }
+      standardNormalTable.sort((a,b) => a - b);
+      return standardNormalTable;
+    } catch(err) {
+      console.error(`"StandardNormalTable()" failed: ${err}`);
+      return []
     }
-    standardNormalTable.sort((a,b) => a - b);
-    return standardNormalTable;
   }
 
   /**
@@ -601,7 +609,12 @@ class StatisticsService {
    * @return {boolean} Whether numbers are within tolerance.
    */
   static ApproxEqual(actual = 3.0, expected = 5.0, tolerance = StatisticsService.Epsilon) {
-    return StatisticsService.RelativeError(actual, expected) <= tolerance;
+    try {
+      return StatisticsService.RelativeError(actual, expected) <= tolerance;
+    } catch(err) {
+      console.error(`"ApproxEqual()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -617,13 +630,15 @@ class StatisticsService {
   static ArithmeticMean(distribution = []) {
     try {
       const n = distribution.length;
-      if(n == 0) return 0;
+      if(n < 1) return 0;
+      if(n == 1) return distribution[0];
 
       let values = [];
       if (Array.isArray(distribution[0])) values = distribution.map(item => item[1]);
       else values = distribution;
 
       const mean = values.reduce((a, b) => a + b) / n;
+      // console.warn(`ARITHMETIC MEAN: ${mean}`);
       return mean;
     } catch(err) {
       console.error(`"ArithmeticMean()" failed : ${err}`);
@@ -747,56 +762,72 @@ class StatisticsService {
    * ss.chiSquaredGoodnessOfFit(data1019, ss.poissonDistribution, 0.05); //= false
    */
   static ChiSquaredGoodnessOfFit(data = [], distributionType = StatisticsService.PoissonDistribution, significance = 0.05) {
-    const inputMean = StatisticsService.ArithmeticMean(data);  // Estimate from the sample data, a weighted mean.
-    let chiSquared = 0;  // Calculated value of the χ2 statistic.
-    // Number of hypothesized distribution parameters estimated, expected to be supplied in the distribution test.
-    // Lose one degree of freedom for estimating `lambda` from the sample data.
-    const c = 1;
+    try {
+      if (typeof distributionType !== "function") distributionType = StatisticsService.PoissonDistribution
+      const inputMean = StatisticsService.ArithmeticMean(data);  
+      let chiSquared = 0;  // Calculated value of the χ2 statistic.
+      // Number of hypothesized distribution parameters estimated, expected to be supplied in the distribution test.
+      // Lose one degree of freedom for estimating `lambda` from the sample data.
+      const c = 1;
 
-    // Generate the hypothesized distribution.
-    const hypothesizedDistribution = distributionType(inputMean);
-    const observedFrequencies = [];
-    const expectedFrequencies = [];
+      // Generate the hypothesized distribution.
+      const hypothesizedDistribution = distributionType(inputMean);
 
-    // Create an array holding a histogram from the sample data, of the form `{ value: numberOfOcurrences }`
-    for(let i = 0; i < data.length; i++) {
-      if(observedFrequencies[data[i]] === undefined) observedFrequencies[data[i]] = 0;
-      observedFrequencies[data[i]]++;
-    }
+      let observedFrequencies = [];
+      let expectedFrequencies = [];
 
-    // The histogram we created might be sparse - there might be gaps between values. 
-    // Iterate through the histogram, making sure that instead of undefined, gaps have 0 values.
-    for(let i = 0; i < observedFrequencies.length; i++) {
-      if(observedFrequencies[i] === undefined) observedFrequencies[i] = 0;
-    }
-
-    // Create an array holding a histogram of expected data given the sample size and hypothesized distribution.
-    for(const k in hypothesizedDistribution) {
-      if(k in observedFrequencies) expectedFrequencies[+k] = hypothesizedDistribution[k] * data.length;
-    }
-
-    // Working backward through the expected frequencies, collapse classes if less than three observations are expected for a class.
-    // This transformation is applied to the observed frequencies as well.
-    for(let k = expectedFrequencies.length - 1; k >= 0; k--) {
-      if(expectedFrequencies[k] < 3) {
-        expectedFrequencies[k - 1] += expectedFrequencies[k];
-        expectedFrequencies.pop();
-        observedFrequencies[k - 1] += observedFrequencies[k];
-        observedFrequencies.pop();
+      // Create an array holding a histogram from the sample data, of the form `{ value: numberOfOcurrences }`
+      for(let i = 0; i < data.length; i++) {
+        if(observedFrequencies[data[i]] === undefined) observedFrequencies[data[i]] = 0;
+        observedFrequencies[data[i]]++;
       }
-    }
 
-    // Iterate through the squared differences between observed & expected frequencies, accumulating the `chiSquared` statistic.
-    for (let k = 0; k < observedFrequencies.length; k++) {
-      chiSquared += Math.pow(observedFrequencies[k] - expectedFrequencies[k], 2) / expectedFrequencies[k];
-    }
+      // The histogram we created might be sparse - there might be gaps between values. 
+      // Iterate through the histogram, making sure that instead of undefined, gaps have 0 values.
+      for(let i = 0; i < observedFrequencies.length; i++) {
+        if(observedFrequencies[i] === undefined) observedFrequencies[i] = 0;
+      }
 
-    // Calculate degrees of freedom for this test and look it up in the `chiSquaredDistributionTable` in order to
-    // accept or reject the goodness-of-fit of the hypothesized distribution.
-    // Degrees of freedom, calculated as (number of class intervals -
-    // number of hypothesized distribution parameters estimated - 1)
-    const degreesOfFreedom = observedFrequencies.length - c - 1;
-    return ( StatisticsService.ChiSquaredDistributionTable[degreesOfFreedom][significance] < chiSquared );
+      // Create an array holding a histogram of expected data given the sample size and hypothesized distribution.
+      for(const k in hypothesizedDistribution) {
+        if(k in observedFrequencies) expectedFrequencies[+k] = hypothesizedDistribution[k] * data.length;
+      }
+
+      // Working backward through the expected frequencies, collapse classes if less than three observations are expected for a class.
+      // This transformation is applied to the observed frequencies as well.
+      for(let k = expectedFrequencies.length - 1; k >= 0; k--) {
+        if(expectedFrequencies[k] < 3) {
+          expectedFrequencies[k - 1] += expectedFrequencies[k];
+          expectedFrequencies.pop();
+          observedFrequencies[k - 1] += observedFrequencies[k];
+          observedFrequencies.pop();
+        }
+      }
+
+      // Iterate through the squared differences between observed & expected frequencies, accumulating the `chiSquared` statistic.
+      for (let k = 0; k < observedFrequencies.length; k++) {
+        chiSquared += Math.pow(observedFrequencies[k] - expectedFrequencies[k], 2) / expectedFrequencies[k];
+      }
+
+      // Calculate degrees of freedom for this test and look it up in the `chiSquaredDistributionTable` in order to
+      // accept or reject the goodness-of-fit of the hypothesized distribution.
+      // Degrees of freedom, calculated as (number of class intervals -
+      // number of hypothesized distribution parameters estimated - 1)
+      const degreesOfFreedom = observedFrequencies.length - c - 1;
+      const res = StatisticsService.ChiSquaredDistributionTable[degreesOfFreedom][significance];
+      const conforming = ( res < chiSquared );
+      const output = {
+        result : res,
+        degrees_of_freedom : degreesOfFreedom,
+        significance : significance,
+        conforming : conforming,
+      }
+      console.info(`Chi Squared: ${JSON.stringify(output)}`);
+      return output;
+    } catch(err) {
+      console.error(`"ChiSquaredGoodnessOfFit()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -873,118 +904,151 @@ class StatisticsService {
    * //= [[-1, -1, -1, -1], [2, 2, 2], [4, 5, 6]]);
    */
   static CK_Means(numbers = [], nClusters = 2) {
-    try {
-      if (nClusters > numbers.length) throw new Error(`Cannot generate more classes than there are data values`);
 
-      // Function that generates incrementally computed values based on the sums and sums of squares for the data array
-      const ssq = (j, i, sums, sumsOfSquares) => {
-        let sji; // s(j, i)
-        if (j > 0) {
-          const muji = (sums[i] - sums[j - 1]) / (i - j + 1); // mu(j, i)
-          sji = sumsOfSquares[i] - sumsOfSquares[j - 1] - (i - j + 1) * muji * muji;
-        } else {
-          sji = sumsOfSquares[i] - (sums[i] * sums[i]) / (i + 1);
-        }
-        if (sji < 0) return 0;
-        return sji;
+    // Calculates the sum of squared deviations (s(j, i)) for a subarray [j, i] using precomputed sums.
+    function SumOfSquares(j, i, sums, sumsOfSquares) {
+      try {
+        // --- Input validation ---
+        if (!Number.isInteger(j) || !Number.isInteger(i)) throw new Error(`j and i must be integers`);
+        if (j < 0 || i < 0 || j > i) throw new Error(`Invalid range: j (${j}) must be <= i (${i}) and both >= 0`);
+        if (!Array.isArray(sums) || !Array.isArray(sumsOfSquares)) throw new Error(`sums and sumsOfSquares must be arrays`);
+        if (i >= sums.length || i >= sumsOfSquares.length) throw new Error(`Index out of bounds for sums or sumsOfSquares`);
+
+        const count = i - j + 1;
+
+        if (count <= 0) return 0; // nothing to compute
+
+        const sum = j > 0 ? sums[i] - sums[j - 1] : sums[i];
+        const sumSq = j > 0 ? sumsOfSquares[i] - sumsOfSquares[j - 1] : sumsOfSquares[i];
+
+        const mean = sum / count;
+        const variance = sumSq - count * mean * mean;
+
+        // Prevent very small negatives due to floating point errors
+        return Math.max(0, variance);
+
+      } catch (err) {
+        console.error(`SumOfSquares() failed: ${err.message}`);
+        return 0;
       }
-      // Function that recursively divides and conquers computations for cluster j
-      const fillMatrixColumn = (iMin, iMax, cluster, matrix, backtrackMatrix, sums, sumsOfSquares) => {
-        if (iMin > iMax) return;
-        
-        const i = Math.floor((iMin + iMax) / 2); // Start at midpoint between iMin and iMax
+    }
 
+    // Recursively fills a column of a dynamic programming matrix used in clustering optimization.
+    // Uses divide and conquer to minimize the within-cluster sum of squares.
+    function FillMatrixColumn(iMin, iMax, cluster, matrix, backtrackMatrix, sums, sumsOfSquares) {
+      try {
+        // --- Input validation ---
+        if (![iMin, iMax, cluster].every(Number.isInteger)) throw new Error("iMin, iMax, and cluster must be integers.");
+        if (!Array.isArray(matrix) || !Array.isArray(backtrackMatrix)) throw new Error("matrix and backtrackMatrix must be 2D arrays.");
+        if (!Array.isArray(sums) || !Array.isArray(sumsOfSquares)) throw new Error("sums and sumsOfSquares must be arrays.");
+        if (cluster <= 0 || iMin > iMax) return;
+
+        const numPoints = matrix[0].length;
+        const midpoint = Math.floor((iMin + iMax) / 2);
+        const i = midpoint;
+
+        if (i <= 0 || cluster >= matrix.length || i >= numPoints) return;
+
+        // Initialize with a fallback value from previous cluster
         matrix[cluster][i] = matrix[cluster - 1][i - 1];
         backtrackMatrix[cluster][i] = i;
 
-        let jlow = cluster; // the lower end for j
+        // Determine lower and upper bounds for j
+        let jLow = cluster;
+        if (iMin > cluster) jLow = Math.max(jLow, backtrackMatrix[cluster][iMin - 1] || cluster);
+        jLow = Math.max(jLow, backtrackMatrix[cluster - 1][i] || cluster);
 
-        if (iMin > cluster) jlow = Math.max(jlow, backtrackMatrix[cluster][iMin - 1] || 0);
-        jlow = Math.max(jlow, backtrackMatrix[cluster - 1][i] || 0);
+        let jHigh = i - 1;
+        if (iMax < numPoints - 1) jHigh = Math.min(jHigh, backtrackMatrix[cluster][iMax + 1] || jHigh);
 
-        let jhigh = i - 1; // the upper end for j
-        if (iMax < matrix[0].length - 1) jhigh = Math.min(jhigh, backtrackMatrix[cluster][iMax + 1] || 0);
+        // Search for optimal j in [jLow, jHigh]
+        for (let j = jHigh; j >= jLow; --j) {
+          const sji = SumOfSquares(j, i, sums, sumsOfSquares);
 
-        for (let j = jhigh; j >= jlow; --j) {
-          let sji = ssq(j, i, sums, sumsOfSquares);
-          if (sji + matrix[cluster - 1][jlow - 1] >= matrix[cluster][i]) break;
+          // Early termination if no better solution is possible
+          const lowerBound = matrix[cluster - 1][jLow - 1] + SumOfSquares(jLow, i, sums, sumsOfSquares);
+          if (sji + matrix[cluster - 1][jLow - 1] >= matrix[cluster][i]) break;
 
-          // Examine the lower bound of the cluster border
-          let sjlowi = ssq(jlow, i, sums, sumsOfSquares);
-          let ssqjlow = sjlowi + matrix[cluster - 1][jlow - 1];
-
-          if (ssqjlow < matrix[cluster][i]) {
-            // Shrink the lower bound
-            matrix[cluster][i] = ssqjlow;
-            backtrackMatrix[cluster][i] = jlow;
+          if (lowerBound < matrix[cluster][i]) {
+            matrix[cluster][i] = lowerBound;
+            backtrackMatrix[cluster][i] = jLow;
           }
-          jlow++;
 
-          let ssqj = sji + matrix[cluster - 1][j - 1];
-          if (ssqj < matrix[cluster][i]) {
-            matrix[cluster][i] = ssqj;
+          jLow++;
+
+          const total = sji + matrix[cluster - 1][j - 1];
+          if (total < matrix[cluster][i]) {
+            matrix[cluster][i] = total;
             backtrackMatrix[cluster][i] = j;
           }
         }
 
-        fillMatrixColumn(iMin, i - 1, cluster, matrix, backtrackMatrix, sums, sumsOfSquares );
-        fillMatrixColumn(i + 1, iMax, cluster, matrix, backtrackMatrix, sums, sumsOfSquares );
+        // Recursively divide and conquer
+        FillMatrixColumn(iMin, i - 1, cluster, matrix, backtrackMatrix, sums, sumsOfSquares);
+        FillMatrixColumn(i + 1, iMax, cluster, matrix, backtrackMatrix, sums, sumsOfSquares);
+        
+      } catch (err) {
+        console.error(`"FillMatrixColumn()" inside "CK_Means()" failed: ${err.message}`);
       }
-      // Initializes the main matrices used in Ckmeans and kicks off the divide and conquer cluster computation strategy
-      const fillMatrices = (data, matrix, backtrackMatrix) => {
-        const nValues = matrix[0].length;
-        const shift = data[Math.floor(nValues / 2)];  // Shift values by the median to improve numeric stability
+    }
 
+    // Initializes the main matrices used in Ckmeans and kicks off the divide and conquer cluster computation strategy
+    function FillMatrices(data, matrix, backtrackMatrix) {
+      const nValues = matrix[0].length;
+      const shift = data[Math.floor(nValues / 2)];  // Shift values by the median to improve numeric stability
 
-        const sums = [];
-        const sumsOfSquares = [];
+      const sums = [];
+      const sumsOfSquares = [];
 
-        // Initialize first column in matrix & backtrackMatrix
-        for (let i = 0, shiftedValue; i < nValues; ++i) {
-          shiftedValue = data[i] - shift;
-          if (i === 0) {
-            sums.push(shiftedValue);
-            sumsOfSquares.push(shiftedValue * shiftedValue);
-          } else {
-            sums.push(sums[i - 1] + shiftedValue);
-            sumsOfSquares.push(sumsOfSquares[i - 1] + shiftedValue * shiftedValue);
-          }
-
-          // Initialize for cluster = 0
-          matrix[0][i] = ssq(0, i, sums, sumsOfSquares);
-          backtrackMatrix[0][i] = 0;
+      // Initialize first column in matrix & backtrackMatrix
+      for (let i = 0, shiftedValue; i < nValues; ++i) {
+        shiftedValue = data[i] - shift;
+        if (i === 0) {
+          sums.push(shiftedValue);
+          sumsOfSquares.push(shiftedValue * shiftedValue);
+        } else {
+          sums.push(sums[i - 1] + shiftedValue);
+          sumsOfSquares.push(sumsOfSquares[i - 1] + shiftedValue * shiftedValue);
         }
 
-        // Initialize the rest of the columns
-        let iMin;
-        for (let cluster = 1; cluster < matrix.length; ++cluster) {
-          if (cluster < matrix.length - 1) iMin = cluster;
-          else iMin = nValues - 1;  // No need to compute matrix[K-1][0] ... matrix[K-1][N-2]
-
-          fillMatrixColumn(
-            iMin,
-            nValues - 1,
-            cluster,
-            matrix,
-            backtrackMatrix,
-            sums,
-            sumsOfSquares,
-          );
-        }
+        // Initialize for cluster = 0
+        matrix[0][i] = SumOfSquares(0, i, sums, sumsOfSquares);
+        backtrackMatrix[0][i] = 0;
       }
+
+      // Initialize the rest of the columns
+      let iMin;
+      for (let cluster = 1; cluster < matrix.length; ++cluster) {
+        if (cluster < matrix.length - 1) iMin = cluster;
+        else iMin = nValues - 1;  // No need to compute matrix[K-1][0] ... matrix[K-1][N-2]
+
+        FillMatrixColumn(
+          iMin,
+          nValues - 1,
+          cluster,
+          matrix,
+          backtrackMatrix,
+          sums,
+          sumsOfSquares,
+        );
+      }
+    }
+
+    try {
+      if (nClusters > numbers.length) throw new Error(`Cannot generate more classes than there are data values`);
 
       const sorted = StatisticsService.NumericSort(numbers);
       const uniqueCount = StatisticsService.CountUnique(sorted);
       if (uniqueCount === 1) return [sorted];  // if all of the input values are identical, there's one cluster with all of the input in it.
 
-      const matrix = StatisticsService.Matrix(nClusters, sorted.length);
-      const backtrackMatrix = StatisticsService.Matrix(nClusters, sorted.length);
+      let matrix = StatisticsService.Matrix(nClusters, sorted.length);
+      let backtrackMatrix = StatisticsService.Matrix(nClusters, sorted.length);
 
       // This is a dynamic programming way to solve the problem of minimizing
       // within-cluster sum of squares. It's similar to linear regression
       // in this way, and this calculation incrementally computes the
       // sum of squares that are later read.
-      fillMatrices(sorted, matrix, backtrackMatrix);
+      FillMatrices(sorted, matrix, backtrackMatrix);
 
       // The real work of Ckmeans clustering happens in the matrix generation:
       // the generated matrices encode all possible clustering combinations, and
@@ -1006,6 +1070,7 @@ class StatisticsService {
 
         if (cluster > 0) clusterRight = clusterLeft - 1;
       }
+      console.info(`Clusters: ${clusters}`);
       return clusters;
     } catch(err) {
       console.error(`"CK_Means()" failed: ${err}`);
@@ -1371,12 +1436,17 @@ class StatisticsService {
    * @returns {number} Distance.
    */
   static EuclideanDistance(left = [], right = []) {
-    let sum = 0;
-    for(let i = 0; i < left.length; i++) {
-      const diff = left[i] - right[i];
-      sum += diff * diff;
+    try {
+      let sum = 0;
+      for(let i = 0; i < left.length; i++) {
+        const diff = left[i] - right[i];
+        sum += diff * diff;
+      }
+      return Math.sqrt(sum);
+    } catch(err) {
+      console.error(`"EuclideanDistance()" failed: ${err}`);
+      return 1;
     }
-    return Math.sqrt(sum);
   }
 
   /**
@@ -1391,15 +1461,20 @@ class StatisticsService {
    * extent([1, 2, 3, 4]); // => [1, 4]
    */
   static Extent(array = []) {
-    if (array.length === 0) throw new Error("extent requires at least one data point");
+    try {
+      if (array.length === 0) throw new Error("extent requires at least one data point");
 
-    let min = array[0];
-    let max = array[0];
-    array.forEach(value => {
-      if (value > max) max = value;
-      if (value < min) min = value;
-    });
-    return [ min, max, ];
+      let min = array[0];
+      let max = array[0];
+      array.forEach(value => {
+        if (value > max) max = value;
+        if (value < min) min = value;
+      });
+      return [ min, max, ];
+    } catch(err) {
+      console.error(`"Extent()" failed : ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -1520,38 +1595,38 @@ class StatisticsService {
   }
 
   /**
-   * Geometric Mean
-   * (https://en.wikipedia.org/wiki/Geometric_mean)
-   * This is the nth root of the input numbers multiplied by each other.
+   * Calculates the geometric mean of a list of positive numbers.
+   * Uses logarithmic summation for numerical stability.
    *
-   * The geometric mean is often useful for
-   * **[proportional growth](https://en.wikipedia.org/wiki/Geometric_mean#Proportional_growth)**: given
-   * growth rates for multiple years, like _80%, 16.66% and 42.85%_, a simple
-   * mean will incorrectly estimate an average growth rate, whereas a geometric
-   * mean will correctly estimate a growth rate that, over those years,
-   * will yield the same end value.
-   *
-   * This runs in `O(n)`, linear time, with respect to the length of the array.
-   *
-   * @param {Array<number>} x sample of one or more data points
-   * @returns {number} geometric mean
-   * @throws {Error} if x is empty
-   * @throws {Error} if x contains a negative number
+   * @param {Array<number | [any, number]>} input - Array of numbers or key-value tuples.
+   * @returns {number} The geometric mean.
+   * @throws {Error} If input is empty or contains invalid values.
    */
-  static GeometricMean(numbers = []) {
+  static GeometricMean(input = []) {
     try {
-      if(numbers.length < 1) return 0;
+      // Validate input
+      if (!Array.isArray(input) || input.length === 0) {
+        throw new Error('Input must be a non-empty array.');
+      }
 
-      let values = [];
-      if (Array.isArray(numbers[0])) values = numbers.map(item => Number(item[1]));
-      else values = numbers.map(x => Number(x));
+      let n = 0;
+      let logSum = 0;
 
-      const product = values.reduce((product, num) => product * num, 1);
-      const geometricMean = Math.pow(product, 1 / values.length);
-      return geometricMean;
-    } catch(err) {
-      console.error(`"GeometricMean()" failed : ${err}`);
-      return 1;
+      for (const item of input) {
+        const value = Array.isArray(item) ? Number(item[1]) : Number(item);
+
+        if (!isFinite(value) || value <= 0) {
+          throw new Error(`Invalid value encountered: ${value}. All values must be positive numbers.`);
+        }
+
+        logSum += Math.log(value);
+        n++;
+      }
+
+      return Math.exp(logSum / n);
+    } catch (err) {
+      console.error(`GeometricMean() failed: ${err.message}`);
+      return 1; // safe fallback
     }
   }
 
@@ -1572,8 +1647,13 @@ class StatisticsService {
    * sample(values, 3); // returns 3 random values, like [2, 5, 8];
    */
   static GetRandomSample(array = [], n = 1, randomSource = Math.random) {
-    const shuffled = StatisticsService.Shuffle(array, randomSource);
-    return shuffled.slice(0, n);
+    try {
+      const shuffled = StatisticsService.Shuffle(array, randomSource);
+      return shuffled.slice(0, n);
+    } catch(err) {
+      console.error(`"GetRandomSample()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -1600,6 +1680,7 @@ class StatisticsService {
       else values = numbers;
 
       const harmonicMean = values.length / values.reduce((a, b) => a + 1 / b, 0);
+      // console.warn(`HARMONIC MEAN: ${harmonicMean}`);
       return harmonicMean;
     } catch(err) {
       console.error(`"HarmonicMean()" failed : ${err}`);
@@ -1620,10 +1701,15 @@ class StatisticsService {
    * interquartileRange([0, 1, 2, 3]); // => 2
    */
   static InterquartileRange(numbers = []) {
-    // Interquartile range is the span between the upper quartile, at `0.75`, and lower quartile, `0.25`
-    const q1 = StatisticsService.Quantile(numbers, 0.75);
-    const q2 = StatisticsService.Quantile(numbers, 0.25);
-    if (typeof q1 === "number" && typeof q2 === "number") return q1 - q2;
+    try {
+      // Interquartile range is the span between the upper quartile, at `0.75`, and lower quartile, `0.25`
+      const q1 = StatisticsService.Quantile(numbers, 0.75);
+      const q2 = StatisticsService.Quantile(numbers, 0.25);
+      if (typeof q1 === "number" && typeof q2 === "number") return q1 - q2;
+    } catch(err) {
+      console.error(`"InterquartileRange()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -1641,10 +1727,9 @@ class StatisticsService {
    * jenks([1, 2, 4, 5, 7, 9, 10, 20], 3) // = [1, 7, 20, 20]
    */
   static Jenks(data = [], nClasses = 2) {
-    if (nClasses > data.length) return null;
 
     // Pull Breaks Values for Jenks. the second part of the jenks recipe: take the calculated matrices and derive an array of n breaks.
-    const JenksBreaks = (data, lowerClassLimits, nClasses) => {
+    function JenksBreaks(data, lowerClassLimits, nClasses) {
       let k = data.length;
       let kclass = [];
       let countNum = nClasses;
@@ -1662,7 +1747,7 @@ class StatisticsService {
     }
 
     // Compute the matrices required for Jenks breaks. These matrices can be used for any classing of data with `classes <= nClasses`
-    const JenksMatrices = (data, nClasses) => {
+    function JenksMatrices(data, nClasses) {
       let lowerClassLimits = [];
       let varianceCombinations = [];
 
@@ -1734,18 +1819,25 @@ class StatisticsService {
         varianceCombinations: varianceCombinations
       }
     }
+    
+    try {
+      if (nClasses > data.length) return null;
 
-    // sort data in numerical order, since this is expected by the matrices function
-    data = data
-      .slice()
-      .sort((a, b) => a - b);
+      // sort data in numerical order, since this is expected by the matrices function
+      data = data
+        .slice()
+        .sort((a, b) => a - b);
 
-    const matrices = JenksMatrices(data, nClasses);
-    const lowerClassLimits = matrices.lowerClassLimits;
+      const matrices = JenksMatrices(data, nClasses);
+      const lowerClassLimits = matrices.lowerClassLimits;
 
-    // extract nClasses out of the computed matrices
-    const breaks = JenksBreaks(data, lowerClassLimits, nClasses);
-    return breaks;
+      // extract nClasses out of the computed matrices
+      const breaks = JenksBreaks(data, lowerClassLimits, nClasses);
+      return breaks;
+    } catch(err) {
+      console.error(`"Jenks()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -1761,9 +1853,18 @@ class StatisticsService {
    * kMeansCluster([[0.0, 0.5], [1.0, 0.5]], 2); // => {labels: [0, 1], centroids: [[0.0, 0.5], [1.0 0.5]]}
    */
   static K_Means_Cluster(points, numCluster = 2, randomSource = Math.random) {
+    if (!Array.isArray(points) || points.length === 0 || !Number.isInteger(numCluster) || numCluster <= 0) {
+      console.error('Invalid input to K_Means_Cluster');
+      return [];
+    }
     // const nonRNG = () => 1.0 - StatisticsService.Epsilon;
+
     // Label each point according to which centroid it is closest to.
-    const LabelPoints = (points, centroids) => {
+    function LabelPoints(points = [], centroids = []) {
+      if (!Array.isArray(points) || !Array.isArray(centroids) || points.length === 0 || centroids.length === 0) {
+        console.warn(`LabelPoints: Invalid points or centroids.`);
+        return [];
+      }
       return points.map((p) => {
         let minDist = Number.MAX_VALUE;
         let label = -1;
@@ -1779,41 +1880,47 @@ class StatisticsService {
     }
 
     // Calculate centroids for points given labels.
-    const CalculateCentroids = (points, labels, numCluster) => {
-      let dimension = points[0].length;
+    function CalculateCentroids(points = [], labels = [], numCluster = 2) {
+      if (!Array.isArray(points) || !Array.isArray(labels) || points.length !== labels.length || points.length === 0) {
+        console.error(`CalculateCentroids: Invalid or mismatched points and labels.`);
+        return [];
+      }
+      let dimension = (Array.isArray(points[0])) ? points[0].length : 1;
       let centroids = StatisticsService.Matrix(numCluster, dimension);
       let counts = Array(numCluster).fill(0);
 
-      // Add points to centroids' accumulators and count points per centroid.
-      let numPoints = points.length;
-      for (let i = 0; i < numPoints; i++) {
+      for (let i = 0; i < points.length; i++) {
         let point = points[i];
         let label = labels[i];
-        let current = centroids[label];
+        if (!Array.isArray(point) || label < 0 || label >= numCluster) continue;
+
         for (let j = 0; j < dimension; j++) {
-          current[j] += point[j];
+          centroids[label][j] += point[j];
         }
         counts[label] += 1;
       }
 
-      // Rescale centroids, checking for any that have no points.
       for (let i = 0; i < numCluster; i++) {
         if (counts[i] === 0) throw new Error(`Centroid ${i} has no friends`);
-        let centroid = centroids[i];
         for (let j = 0; j < dimension; j++) {
-          centroid[j] /= counts[i];
+          centroids[i][j] /= counts[i];
         }
       }
       return centroids;
     }
 
     // Calculate the difference between old centroids and new centroids.
-    const CalculateChange = (left, right) => {
-      let total = 0;
-      for (let i = 0; i < left.length; i++) {
-        total += StatisticsService.EuclideanDistance(left[i], right[i]);
+    function CalculateChange(left = [], right = []) {
+      try {
+        if(!left || !right) return;
+        let total = 0;
+        for (let i = 0; i < left.length; i++) {
+          total += StatisticsService.EuclideanDistance(left[i], right[i]);
+        }
+        return total;
+      } catch(err) {
+        console.error(`"CalculateChange()" in "K_Means_Cluster()" failed: ${err}`);
       }
-      return total;
     }
     
     try {
@@ -1847,26 +1954,28 @@ class StatisticsService {
    * a commonly used version of [Silverman's rule-of-thumb](https://en.wikipedia.org/wiki/Kernel_density_estimation#A_rule-of-thumb_bandwidth_estimator).
    */
   static Kernel_Density_Estimation(array = [], estimate = 0) {
-
     // [Well-known kernels](https://en.wikipedia.org/wiki/Kernel_(statistics)#Kernel_functions_in_common_use)
     const gaussian_kernels = (u) => Math.exp(-0.5 * u * u) / Math.sqrt(2 * Math.PI);
     
     // Well known bandwidth selection methods
-    const NormalReferenceDistribution = (numbers = []) => {
+    function NormalReferenceDistribution(numbers = []) {
       let s = StatisticsService.StandardDeviation(numbers);
-      const iqr = StatisticsService.InterquartileRange(numbers);
-      if (typeof iqr === "number") {
-        s = Math.min(s, iqr / 1.34);
+      let iqr = StatisticsService.InterquartileRange(numbers);
+      let ds = Math.min(s, iqr / 1.34);
+      return 1.06 * ds * Math.pow(numbers.length, -0.2);
+    }
+      
+    try {
+      const bandwidth = NormalReferenceDistribution(array);
+      let sum = 0;
+      for (let i = 0; i < array.length; i++) {
+        sum += gaussian_kernels((estimate - array[i]) / bandwidth);
       }
-      return 1.06 * s * Math.pow(numbers.length, -0.2);
+      return sum / bandwidth / array.length;
+    } catch(err) {
+      console.error(`"Kernel_Density_Estimation()" failed: ${err}`);
+      return 1;
     }
-    
-    const bandwidth = NormalReferenceDistribution(array);
-    let sum = 0;
-    for (let i = 0; i < array.length; i++) {
-      sum += gaussian_kernels((estimate - array[i]) / bandwidth);
-    }
-    return sum / bandwidth / array.length;
   }
 
   /**
@@ -1916,8 +2025,7 @@ class StatisticsService {
    * linearRegression([[0, 0], [1, 1]]); // => { m: 1, b: 0 }
    */
   static LinearRegression(data = []) {
-    let m;
-    let b;
+    let m, b;
 
     // Store data length in a local variable to reduce repeated object property lookups
     const dataLength = data.length;
@@ -1928,10 +2036,8 @@ class StatisticsService {
         b = data[0][1];
     } else {
       // Initialize our sums and scope the `m` and `b` variables that define the line.
-      let sumX = 0;
-      let sumY = 0;
-      let sumXX = 0;
-      let sumXY = 0;
+      let sumX = 0, sumY = 0;
+      let sumXX = 0, sumXY = 0;
 
       // Gather the sum of all x values, the sum of all y values, and the sum of x^2 and (x*y) for each value.
       // In math notation, these would be SS_x, SS_y, SS_xx, and SS_xy
@@ -1977,9 +2083,7 @@ class StatisticsService {
    */
   static LinearRegressionLine(mb /*: { b: number, m: number }*/) {
     // Return a function that computes a `y` value for each x value it is given, based on the values of `b` and `a` that we just computed.
-    return function (x) {
-      return mb.b + mb.m * x;
-    }
+    return (x) => mb.b + mb.m * x;
   }
 
   /**
@@ -1994,15 +2098,22 @@ class StatisticsService {
    * @throws {Error} if x contains a negative number
    */
   static LogAverage(numbers = []) {
-    if (numbers.length === 0) throw new Error("logAverage requires at least one data point");
+    try {
+      if (!Array.isArray(numbers) || numbers.length === 0) {
+        console.error('Invalid input to LogAverage');
+        return null;
+      }
 
-    let value = 0;
-    for (let i = 0; i < numbers.length; i++) {
-      if (numbers[i] < 0) throw new Error(`Requires only non-negative numbers as input`);
-      value += Math.log(numbers[i]);
+      let value = 0;
+      numbers.forEach(number => {
+        number = number > 0 ? number : StatisticsService.Epsilon; 
+        value += Math.log(number);
+      });
+      return Math.exp(value / numbers.length);
+    } catch(err) {
+      console.error(`"LogAverage()" failed: ${err}`);
+      return null;
     }
-
-    return Math.exp(value / numbers.length);
   }
 
   /**
@@ -2013,9 +2124,14 @@ class StatisticsService {
    * @param {number} p
    * @returns {number} logit
    */
-  static Logit(p = 2.0) {
-    if (p <= 0 || p >= 1) throw new Error("p must be strictly between zero and one");
-    return Math.log(p / (1 - p));
+  static Logit(p = 0.75) {
+    try {
+      p = Math.max(0, Math.min(1, p));
+      return Math.log(p / (1 - p));
+    } catch(err) {
+      console.error(`"Logit()" failed: ${err}`);
+      return null;
+    }
   }
 
   /**
@@ -2028,15 +2144,20 @@ class StatisticsService {
    * makeMatrix(10, 10);
    */
   static Matrix(columns = 10, rows = 10) {
-    let matrix = [];
-    for (let i = 0; i < columns; i++) {
-      let column = [];
-      for (let j = 0; j < rows; j++) {
-        column.push(0);
+    try {
+      let matrix = [];
+      for (let i = 0; i < columns; i++) {
+        let column = [];
+        for (let j = 0; j < rows; j++) {
+          column.push(0);
+        }
+        matrix.push(column);
       }
-      matrix.push(column);
+      return matrix;
+    } catch(err) {
+      console.error(`"Matrix()" failed : ${err}`);
+      return 1;
     }
-    return matrix;
   }
 
   /**
@@ -2059,6 +2180,7 @@ class StatisticsService {
           (sortedNumbers[middle - 1] + sortedNumbers[middle]) / 2 :
           sortedNumbers[middle];
 
+      // console.warn(`MEDIAN: ${median}`);
       return median;
     } catch(err) {
       console.error(`"Median()" failed : ${err}`);
@@ -2077,14 +2199,19 @@ class StatisticsService {
    * medianAbsoluteDeviation([1, 1, 2, 2, 4, 6, 9]); // => 1
    */
   static MedianAbsoluteDeviation(numbers = []) {
-    const medianValue = StatisticsService.ArithmeticMean(numbers);
+    try {
+      const medianValue = StatisticsService.ArithmeticMean(numbers);
 
-    // Make a list of absolute deviations from the median
-    const medianAbsoluteDeviations = [...numbers.map(x => Math.abs(x - medianValue))];
+      // Make a list of absolute deviations from the median
+      const medianAbsoluteDeviations = [...numbers.map(x => Math.abs(x - medianValue))];
 
-    // Find the median value of that list
-    const median = StatisticsService.ArithmeticMean(medianAbsoluteDeviations);
-    return median;
+      // Find the median value of that list
+      const median = StatisticsService.ArithmeticMean(medianAbsoluteDeviations);
+      return median;
+    } catch(err) {
+      console.error(`"MedianAbsoluteDeviation()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2148,22 +2275,27 @@ class StatisticsService {
    * modeFast(['rabbits', 'rabbits', 'squirrels']); // => 'rabbits'
    */
   static Mode(array = []) {
-    if (array.length === 0) throw new Error(`"Mode()" requires at last one data point`);
-    const index = new Map();  // This index will reflect the incidence of different values, indexing them like { value: count }
+    try {
+      if (array.length === 0) throw new Error(`"Mode()" requires at last one data point`);
+      const index = new Map();  // This index will reflect the incidence of different values, indexing them like { value: count }
 
-    let mode;
-    let modeCount = 0;
-    for (let i = 0; i < array.length; i++) {
-      let newCount = index.get(array[i]);
-      if (newCount === undefined) newCount = 1;
-      else newCount++;
-      if (newCount > modeCount) {
-        mode = array[i];
-        modeCount = newCount;
+      let mode;
+      let modeCount = 0;
+      for (let i = 0; i < array.length; i++) {
+        let newCount = index.get(array[i]);
+        if (newCount === undefined) newCount = 1;
+        else newCount++;
+        if (newCount > modeCount) {
+          mode = array[i];
+          modeCount = newCount;
+        }
+        index.set(array[i], newCount);
       }
-      index.set(array[i], newCount);
+      return mode;
+    } catch(err) {
+      console.error(`"Mode()" failed: ${err}`);
+      return 1;
     }
-    return mode;
   }
 
   /**
@@ -2183,9 +2315,14 @@ class StatisticsService {
    * numericSort([3, 2, 1]) // => [1, 2, 3]
    */
   static NumericSort(numbers = []) {
-    return numbers
-      .slice()
-      .sort((a, b) => Number(a) - Number(b));
+    try {
+      return numbers
+        .slice()
+        .sort((a, b) => Number(a) - Number(b));
+    } catch(err) {
+      console.error(`"NumericSort()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2201,25 +2338,30 @@ class StatisticsService {
    * @param {number} lambda location poisson distribution
    * @returns {number[]} values of poisson distribution at that point
    */
-  static PoissonDistribution(lambda = 2.0) /*: ?number[] */ {  
-    if (lambda <= 0) return undefined; // Check that lambda is strictly positive
+  static PoissonDistribution(lambda = 2.0) /*: ?number[] */ { 
+    try {
+      if (lambda <= 0) return undefined; // Check that lambda is strictly positive
 
-    let x = 0;
-    let cumulativeProbability = 0;  // and we keep track of the current cumulative probability, in order to know when to stop calculating chances.
-    
-    const cells = []; // the calculated cells to be returned
-    let factorialX = 1;
+      let x = 0;
+      let cumulativeProbability = 0;  // and we keep track of the current cumulative probability, in order to know when to stop calculating chances.
+      
+      let cells = []; // the calculated cells to be returned
+      let factorialX = 1;
 
-    // This algorithm iterates through each potential outcome, until the `cumulativeProbability` is very close to 1, at
-    // which point we've defined the vast majority of outcomes
-    while (cumulativeProbability < 1 - StatisticsService.Epsilon) {
-      cells[x] = (Math.exp(-lambda) * Math.pow(lambda, x)) / factorialX;  // [probability mass function](https://en.wikipedia.org/wiki/Probability_mass_function)
-      cumulativeProbability += cells[x];
-      x++;
-      factorialX *= x;  // when the cumulativeProbability is nearly 1, we've calculated the useful range of this distribution
+      // This algorithm iterates through each potential outcome, until the `cumulativeProbability` is very close to 1, at
+      // which point we've defined the vast majority of outcomes
+      while (cumulativeProbability < 1 - StatisticsService.Epsilon) {
+        cells[x] = (Math.exp(-lambda) * Math.pow(lambda, x)) / factorialX;  // [probability mass function](https://en.wikipedia.org/wiki/Probability_mass_function)
+        cumulativeProbability += cells[x];
+        x++;
+        factorialX *= x;  // when the cumulativeProbability is nearly 1, we've calculated the useful range of this distribution
+      }
+
+      return cells;
+    } catch(err) {
+      console.error(`"PoissonDistribution()" failed: ${err}`);
+      return 1;
     }
-
-    return cells;
   }
 
   /**
@@ -2290,60 +2432,64 @@ class StatisticsService {
    * var treatment = [20, 5, 13, 12, 7, 2, 2];
    * permutationTest(control, treatment); // ~0.1324
    */
-  static Permutation(sampleX = [], sampleY = [], alternative = `two_sided`, k = 10000, randomSource = Math.random()) {
-    if(alternative !== "two_sided" && alternative !== "greater" && alternative !== "less") alternative = "two_sided"
+  static Permutation(sampleX = [], sampleY = [], alternative = `two_sided`, k = 1000, randomSource = Math.random()) {
+    try {
+      if(alternative !== "two_sided" && alternative !== "greater" && alternative !== "less") alternative = "two_sided"
 
-    const meanX = StatisticsService.ArithmeticMean(sampleX);
-    const meanY = StatisticsService.ArithmeticMean(sampleY);
-    const testStatistic = meanX - meanY;
+      const meanX = StatisticsService.ArithmeticMean(sampleX);
+      const meanY = StatisticsService.ArithmeticMean(sampleY);
+      let testStatistic = meanX - meanY;
 
-    // create test-statistic distribution
-    const testStatDsn = new Array(k);
+      // create test-statistic distribution
+      let testStatDsn = new Array(k);
 
-    // combine datsets so we can easily shuffle later
-    const allData = sampleX.concat(sampleY);
-    const midIndex = Math.floor(allData.length / 2);
+      // combine datsets so we can easily shuffle later
+      let allData = sampleX.concat(sampleY);
+      let midIndex = Math.floor(allData.length / 2);
 
-    for (let i = 0; i < k; i++) {
-      // 1. shuffle data assignments
-      StatisticsService.Shuffle(allData, randomSource);
-      const permLeft = allData.slice(0, midIndex);
-      const permRight = allData.slice(midIndex, allData.length);
+      for (let i = 0; i < k; i++) {
+        // 1. shuffle data assignments
+        StatisticsService.Shuffle(allData, randomSource);
+        const permLeft = allData.slice(0, midIndex);
+        const permRight = allData.slice(midIndex, allData.length);
 
-      // 2.re-calculate test statistic
-      const permTestStatistic = StatisticsService.ArithmeticMean(permLeft) - StatisticsService.ArithmeticMean(permRight);
+        // 2.re-calculate test statistic
+        const permTestStatistic = StatisticsService.ArithmeticMean(permLeft) - StatisticsService.ArithmeticMean(permRight);
 
-      // 3. store test statistic to build test statistic distribution
-      testStatDsn[i] = permTestStatistic;
+        // 3. store test statistic to build test statistic distribution
+        testStatDsn[i] = permTestStatistic;
+      }
+
+      // Calculate p-value depending on alternative
+      // For this test, we calculate the percentage of 'extreme' test statistics (subject to our hypothesis)
+      // more info on permutation test p-value calculations: https://onlinecourses.science.psu.edu/stat464/node/35
+      let numExtremeTStats = 0;
+      if (alternative === "two_side") {
+        for (let i = 0; i <= k; i++) {
+          if (Math.abs(testStatDsn[i]) >= Math.abs(testStatistic)) {
+            numExtremeTStats += 1;
+          }
+        }
+      } else if (alternative === "greater") {
+        for (let i = 0; i <= k; i++) {
+          if (testStatDsn[i] >= testStatistic) {
+            numExtremeTStats += 1;
+          }
+        }
+      } else {
+        // alternative === 'less'
+        for (let i = 0; i <= k; i++) {
+          if (testStatDsn[i] <= testStatistic) {
+            numExtremeTStats += 1;
+          }
+        }
+      }
+      const p = numExtremeTStats / k;
+      return p;
+    } catch(err) {
+      console.error(`"Permutation()" failed : ${err}`);
+      return 1;
     }
-
-    // Calculate p-value depending on alternative
-    // For this test, we calculate the percentage of 'extreme' test statistics (subject to our hypothesis)
-    // more info on permutation test p-value calculations: https://onlinecourses.science.psu.edu/stat464/node/35
-    let numExtremeTStats = 0;
-    if (alternative === "two_side") {
-      for (let i = 0; i <= k; i++) {
-        if (Math.abs(testStatDsn[i]) >= Math.abs(testStatistic)) {
-          numExtremeTStats += 1;
-        }
-      }
-    } else if (alternative === "greater") {
-      for (let i = 0; i <= k; i++) {
-        if (testStatDsn[i] >= testStatistic) {
-          numExtremeTStats += 1;
-        }
-      }
-    } else {
-      // alternative === 'less'
-      for (let i = 0; i <= k; i++) {
-        /* c8 ignore start */
-        if (testStatDsn[i] <= testStatistic) {
-          numExtremeTStats += 1;
-        }
-      }
-    }
-
-    return numExtremeTStats / k;
   }
 
   /**
@@ -2354,32 +2500,37 @@ class StatisticsService {
    * @returns {Array<Array>} array of permutations
    */
   static Permutations_Heap(elements = []) {
-    const indexes = new Array(elements.length);
-    const permutations = [elements.slice()];
+    try {
+      let indexes = new Array(elements.length);
+      let permutations = [elements.slice()];
 
-    for (let i = 0; i < elements.length; i++) {
-      indexes[i] = 0;
-    }
-
-    for (let i = 0; i < elements.length; ) {
-      if (indexes[i] < i) {
-        let swapFrom = 0; // At odd indexes, swap from indexes[i] instead of from the beginning of the array
-        if (i % 2 !== 0) swapFrom = indexes[i];
-
-        // swap between swapFrom and i, using a temporary variable as storage.
-        const temp = elements[swapFrom];
-        elements[swapFrom] = elements[i];
-        elements[i] = temp;
-        permutations.push(elements.slice());
-        indexes[i]++;
-        i = 0;
-      } else {
+      for (let i = 0; i < elements.length; i++) {
         indexes[i] = 0;
-        i++;
       }
-    }
 
-    return permutations;
+      for (let i = 0; i < elements.length; ) {
+        if (indexes[i] < i) {
+          let swapFrom = 0; // At odd indexes, swap from indexes[i] instead of from the beginning of the array
+          if (i % 2 !== 0) swapFrom = indexes[i];
+
+          // swap between swapFrom and i, using a temporary variable as storage.
+          let temp = elements[swapFrom];
+          elements[swapFrom] = elements[i];
+          elements[i] = temp;
+          permutations.push(elements.slice());
+          indexes[i]++;
+          i = 0;
+        } else {
+          indexes[i] = 0;
+          i++;
+        }
+      }
+
+      return permutations;
+    } catch(err) {
+      console.error(`"Permutations_Heap()" failed : ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2397,6 +2548,7 @@ class StatisticsService {
       else values = numbers;
 
       const quadraticMean = Math.sqrt(values.reduce((a, b) => a + b * b, 0) / values.length);
+      // console.warn(`QUADRATIC MEAN: ${quadraticMean}`);
       return quadraticMean;
     } catch(err) {
       console.error(`"QuadraticMean()" failed : ${err}`);
@@ -2421,9 +2573,8 @@ class StatisticsService {
    * quantile([3, 6, 7, 8, 8, 9, 10, 13, 15, 16, 20], 0.5); // => 9
    */
   static Quantile(numbers = [], p) {
-    const copy = numbers.slice();
 
-    const QuantileIndex = (len, p) => {
+    function QuantileIndex(len, p) {
       const idx = len * p;
       if (p === 1) return len - 1;  // If p is 1, directly return the last index
       else if (p === 0) return 0;  // If p is 0, directly return the first index
@@ -2432,7 +2583,7 @@ class StatisticsService {
       else return idx;  // Finally, in the simple case of an integer index with an odd-length list, return the index
     }
 
-    const QuantileSelect = (arr, k, left, right) => {
+    function QuantileSelect(arr, k, left, right) {
       if (k % 1 === 0) StatisticsService.QuickSelect(arr, k, left, right);
       else {
         k = Math.floor(k);
@@ -2441,7 +2592,7 @@ class StatisticsService {
       }
     }
 
-    const MultiQuantileSelect = (arr, p) => {
+    function MultiQuantileSelect(arr, p) {
       let indices = [0];
       for (let i = 0; i < p.length; i++) {
         indices.push(QuantileIndex(arr.length, p[i]));
@@ -2463,20 +2614,26 @@ class StatisticsService {
       return stack;
     }
 
-    if (Array.isArray(p)) {
-      // rearrange elements so that each element corresponding to a requested quantile is on a place it would be if the array was fully sorted
-      MultiQuantileSelect(copy, p);
+    try {
+      const copy = numbers.slice();
+      if (Array.isArray(p)) {
+        // rearrange elements so that each element corresponding to a requested quantile is on a place it would be if the array was fully sorted
+        MultiQuantileSelect(copy, p);
 
-      const results = [];
-      for (let i = 0; i < p.length; i++) {
-        results[i] = StatisticsService.QuantileSorted(copy, p[i]);
-      }
-      return results;
-    } else {
+        const results = [];
+        for (let i = 0; i < p.length; i++) {
+          results[i] = StatisticsService.QuantileSorted(copy, p[i]);
+        }
+        return results;
+      } 
       const idx = QuantileIndex(copy.length, p);
       QuantileSelect(copy, idx, 0, copy.length - 1);
       return StatisticsService.QuantileSorted(copy, p);
+    } catch(err) {
+      console.error(`"Quantile()" failed: ${err}`);
+      return 1;
     }
+
   }
 
   /**
@@ -2490,14 +2647,19 @@ class StatisticsService {
    * quantileSorted([3, 6, 7, 8, 8, 9, 10, 13, 15, 16, 20], 0.5); // => 9
    */
   static QuantileSorted(numbers = [], p = 0.5) {
-    const idx = numbers.length * p;
-    if (numbers.length === 0) throw new Error("quantile requires at least one data point.");
-    else if (p < 0 || p > 1) throw new Error("quantiles must be between 0 and 1");
-    else if (p === 0) return numbers[0]; // If p is 0, directly return the first element
-    else if (p === 1) return numbers[numbers.length - 1];  // If p is 1, directly return the last element
-    else if (idx % 1 !== 0) return numbers[Math.ceil(idx) - 1];  // If p is not integer, return the next element in array
-    else if (numbers.length % 2 === 0) return (numbers[idx - 1] + numbers[idx]) / 2;  // If the list has even-length, we'll take the average of this number and the next value, if there is one
-    else return numbers[idx];  // Finally, in the simple case of an integer value with an odd-length list, return the x value at the index.
+    try {
+      const idx = numbers.length * p;
+      if (numbers.length === 0) throw new Error("quantile requires at least one data point.");
+      else if (p < 0 || p > 1) throw new Error("quantiles must be between 0 and 1");
+      else if (p === 0) return numbers[0]; // If p is 0, directly return the first element
+      else if (p === 1) return numbers[numbers.length - 1];  // If p is 1, directly return the last element
+      else if (idx % 1 !== 0) return numbers[Math.ceil(idx) - 1];  // If p is not integer, return the next element in array
+      else if (numbers.length % 2 === 0) return (numbers[idx - 1] + numbers[idx]) / 2;  // If the list has even-length, we'll take the average of this number and the next value, if there is one
+      else return numbers[idx];  // Finally, in the simple case of an integer value with an odd-length list, return the x value at the index.
+    } catch(err) {
+      console.error(`"QuantileSorted()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2556,7 +2718,7 @@ class StatisticsService {
     right = right ? right : arr.length - 1;
 
     // Swap Function
-    const Swap = (arr, i, j) => {
+    function Swap(arr, i, j) {
       let tmp = arr[i];
       arr[i] = arr[j];
       arr[j] = tmp;
@@ -2617,29 +2779,34 @@ class StatisticsService {
    * rSquared(samples, regressionLine); // = 1 this line is a perfect fit
    */
   static R_Squared(array = [], func = StatisticsService.LinearRegressionLine) {
-    if (array.length < 2) return 1;
+    try {
+      if (array.length < 2) return 1;
 
-    // Compute the average y value for the actual data set in order to compute the
-    let sum = 0;
-    for (let i = 0; i < array.length; i++) {
-      sum += array[i][1];
+      // Compute the average y value for the actual data set in order to compute the
+      let sum = 0;
+      for (let i = 0; i < array.length; i++) {
+        sum += array[i][1];
+      }
+      const average = sum / array.length;
+
+      // Compute the total sum of squares - the squared difference between each point and the average of all points.
+      let sumOfSquares = 0;
+      for (let j = 0; j < array.length; j++) {
+        sumOfSquares += Math.pow(average - array[j][1], 2);
+      }
+
+      // Finally estimate the error: the squared difference between the estimate and the actual data value at each point.
+      let err = 0;
+      for (let k = 0; k < array.length; k++) {
+        err += Math.pow(array[k][1] - func(array[k][0]), 2);
+      }
+
+      // As the error grows larger, its ratio to the sum of squares increases and the r squared value grows lower.
+      return 1 - err / sumOfSquares;
+    } catch(err) {
+      console.error(`"R_Squared()" failed: ${err}`);
+      return 1;
     }
-    const average = sum / array.length;
-
-    // Compute the total sum of squares - the squared difference between each point and the average of all points.
-    let sumOfSquares = 0;
-    for (let j = 0; j < array.length; j++) {
-      sumOfSquares += Math.pow(average - array[j][1], 2);
-    }
-
-    // Finally estimate the error: the squared difference between the estimate and the actual data value at each point.
-    let err = 0;
-    for (let k = 0; k < array.length; k++) {
-      err += Math.pow(array[k][1] - func(array[k][0]), 2);
-    }
-
-    // As the error grows larger, its ratio to the sum of squares increases and the r squared value grows lower.
-    return 1 - err / sumOfSquares;
   }
 
   /**
@@ -2674,8 +2841,31 @@ class StatisticsService {
    * @return {number} The relative error.
    */
   static RelativeError(actual = 3.0, expected = 5.0) {
-    if (actual === 0 && expected === 0) return 0;
-    return Math.abs((actual - expected) / expected);
+    try {
+      if (actual === 0 && expected === 0) return 0;
+      return Math.abs((actual - expected) / expected);
+    } catch(err) {
+      console.error(`"RelativeError()" failed: ${err}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Remaps a value from source to target numerical domains.
+   * @param {number} val
+   * @param {number} minimum (old)
+   * @param {number} maximum (old)
+   * @param {number} new minimum
+   * @param {number} new maximum
+   * @returns {number} new value mapped to the new domain
+   */
+  static Remap(val = 1.0, min = 0, max = 100, newMin = 0, newMax = 1) {
+    try {
+      return newMin + (val - min) * (newMax - newMin) / (max - min);
+    } catch(err) {
+      console.error(`"Remap()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2690,12 +2880,17 @@ class StatisticsService {
    * rootMeanSquare([-1, 1, -1, 1]); // => 1
    */
   static RootMeanSquare(numbers = []) {
-    if (numbers.length <= 0) throw new Error("rootMeanSquare requires at least one data point");
-    let sumOfSquares = 0;
-    for (let i = 0; i < numbers.length; i++) {
-      sumOfSquares += Math.pow(numbers[i], 2);
+    try {
+      if (numbers.length < 1) throw new Error("rootMeanSquare requires at least one data point");
+      let sumOfSquares = 0;
+      for (let i = 0; i < numbers.length; i++) {
+        sumOfSquares += Math.pow(numbers[i], 2);
+      }
+      return Math.sqrt(sumOfSquares / numbers.length);
+    } catch(err) {
+      console.error(`"RootMeanSquare()" failed: ${err}`);
+      return 1;
     }
-    return Math.sqrt(sumOfSquares / numbers.length);
   }
 
   /**
@@ -2714,8 +2909,13 @@ class StatisticsService {
    * sample(values, 3); // returns 3 random values, like [2, 5, 8];
    */
   static Sample(array = [], n = 1, randomSource = Math.random) {
-    const shuffled = StatisticsService.Shuffle(array, randomSource);
-    return shuffled.slice(0, n);
+    try {
+      const shuffled = StatisticsService.Shuffle(array, randomSource);
+      return shuffled.slice(0, n);
+    } catch(err) {
+      console.error(`"Sample()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2730,10 +2930,16 @@ class StatisticsService {
    * // => '0.69'
    */
   static Sample_Correlation(numbersA = [], numbersB = []) {
-    const cov = StatisticsService.Sample_Covariance(numbersA, numbersB);
-    const xstd = StatisticsService.StandardDeviation(numbersA);
-    const ystd = StatisticsService.StandardDeviation(numbersB);
-    return cov / xstd / ystd;
+    try {
+      if (numbersA.length < 1 || numbersB < 1) throw new Error("Sample_Correlation requires at least one data point");
+      const cov = StatisticsService.Sample_Covariance(numbersA, numbersB);
+      const xstd = StatisticsService.StandardDeviation(numbersA);
+      const ystd = StatisticsService.StandardDeviation(numbersB);
+      return cov / xstd / ystd;
+    } catch(err) {
+      console.error(`"Sample_Correlation()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -2750,29 +2956,34 @@ class StatisticsService {
    * sampleCovariance([1, 2, 3, 4, 5, 6], [6, 5, 4, 3, 2, 1]); // => -3.5
    */
   static Sample_Covariance(numbersA = [], numbersB = []) {
-    // The two datasets must have the same length which must be more than 1
-    if(numbersA.length !== numbersB.length) throw new Error("sampleCovariance requires samples with equal lengths");
-    if(numbersA.length < 2) throw new Error(`sampleCovariance requires at least two data points in each sample`);
+    try {
+      if (numbersA.length < 2 || numbersB < 2) throw new Error("Sample_Covariance requires at least two data points in each sample");
+      // The two datasets must have the same length which must be more than 1
+      if(numbersA.length !== numbersB.length) throw new Error("sampleCovariance requires samples with equal lengths");
 
-    // Determine the mean of each dataset so that we can judge each value  as the difference from the mean. 
-    // If one dataset is [1, 2, 3] and [2, 3, 4], their covariance does not suffer because of the difference 
-    // in absolute values.
-    const xmean = StatisticsService.ArithmeticMean(numbersA);
-    const ymean = StatisticsService.ArithmeticMean(numbersB);
+      // Determine the mean of each dataset so that we can judge each value  as the difference from the mean. 
+      // If one dataset is [1, 2, 3] and [2, 3, 4], their covariance does not suffer because of the difference 
+      // in absolute values.
+      const xmean = StatisticsService.ArithmeticMean(numbersA);
+      const ymean = StatisticsService.ArithmeticMean(numbersB);
 
-    // For each pair of values, the covariance increases when their difference from the mean is associated - 
-    // if both are well above or if both are well below the mean, the covariance increases significantly.
-    let sum = 0;
-    for (let i = 0; i < numbersA.length; i++) {
-      sum += (numbersA[i] - xmean) * (numbersB[i] - ymean);
+      // For each pair of values, the covariance increases when their difference from the mean is associated - 
+      // if both are well above or if both are well below the mean, the covariance increases significantly.
+      let sum = 0;
+      for (let i = 0; i < numbersA.length; i++) {
+        sum += (numbersA[i] - xmean) * (numbersB[i] - ymean);
+      }
+
+      // this is Bessels' Correction: an adjustment made to sample statistics that allows for the reduced 
+      // degree of freedom entailed in calculating values from samples rather than complete populations.
+      const besselsCorrection = numbersA.length - 1;
+
+      // the covariance is weighted by the length of the datasets.
+      return sum / besselsCorrection;
+    } catch(err) {
+      console.error(`"Sample_Covariance()" failed: ${err}`);
+      return 1;
     }
-
-    // this is Bessels' Correction: an adjustment made to sample statistics that allows for the reduced 
-    // degree of freedom entailed in calculating values from samples rather than complete populations.
-    const besselsCorrection = numbersA.length - 1;
-
-    // the covariance is weighted by the length of the datasets.
-    return sum / besselsCorrection;
   }
 
   /**
@@ -2791,25 +3002,30 @@ class StatisticsService {
    * sampleKurtosis([1, 2, 2, 3, 5]); // => 1.4555765595463122
    */
   static Sample_Kurtosis(numbers = []) {
-    const n = numbers.length;
-    if (n < 4) throw new Error(`Requires at least four data points`);
+    try {
+      const n = numbers.length;
+      if (n < 4) throw new Error(`Requires at least four data points`);
 
-    const meanValue = StatisticsService.ArithmeticMean(numbers);
-    let secondCentralMoment = 0;
-    let fourthCentralMoment = 0;
+      const meanValue = StatisticsService.ArithmeticMean(numbers);
+      let secondCentralMoment = 0;
+      let fourthCentralMoment = 0;
 
-    for (let i = 0; i < n; i++) {
-      let tempValue = numbers[i] - meanValue;
-      secondCentralMoment += tempValue * tempValue;
-      fourthCentralMoment += tempValue * tempValue * tempValue * tempValue;
+      for (let i = 0; i < n; i++) {
+        let tempValue = numbers[i] - meanValue;
+        secondCentralMoment += tempValue * tempValue;
+        fourthCentralMoment += tempValue * tempValue * tempValue * tempValue;
+      }
+
+      return (
+        ((n - 1) / ((n - 2) * (n - 3))) *
+        ((n * (n + 1) * fourthCentralMoment) /
+            (secondCentralMoment * secondCentralMoment) -
+            3 * (n - 1))
+      );
+    } catch(err) {
+      console.error(`"Sample_Kurtosis()" failed: ${err}`);
+      return 1;
     }
-
-    return (
-      ((n - 1) / ((n - 2) * (n - 3))) *
-      ((n * (n + 1) * fourthCentralMoment) /
-          (secondCentralMoment * secondCentralMoment) -
-          3 * (n - 1))
-    );
   }
 
   /**
@@ -2821,25 +3037,31 @@ class StatisticsService {
    * @returns {number} sample rank correlation
    */
   static Sample_RankCorrelation(numbersA = [], numbersB = []) {
-    const xIndexes = numbersA
-      .map((value, index) => [value, index])
-      .sort((a, b) => a[0] - b[0])
-      .map((pair) => pair[1]);
-    const yIndexes = numbersB
-      .map((value, index) => [value, index])
-      .sort((a, b) => a[0] - b[0])
-      .map((pair) => pair[1]);
+    try {
+      const xIndexes = [...numbersA]
+        .map((value, index) => [value, index])
+        .sort((a, b) => a[0] - b[0])
+        .map((pair) => pair[1]);
+      const yIndexes = [...numbersB]
+        .map((value, index) => [value, index])
+        .sort((a, b) => a[0] - b[0])
+        .map((pair) => pair[1]);
 
-    // At this step, we have an array of indexes that map from sorted numbers to their original indexes. 
-    // We reverse that so that it is an array of the sorted destination index.
-    const xRanks = Array(xIndexes.length);
-    const yRanks = Array(xIndexes.length);
-    for (let i = 0; i < xIndexes.length; i++) {
-      xRanks[xIndexes[i]] = i;
-      yRanks[yIndexes[i]] = i;
+      // At this step, we have an array of indexes that map from sorted numbers to their original indexes. 
+      // We reverse that so that it is an array of the sorted destination index.
+      const xRanks = Array(xIndexes.length);
+      const yRanks = Array(xIndexes.length);
+      for (let i = 0; i < xIndexes.length; i++) {
+        xRanks[xIndexes[i]] = i;
+        yRanks[yIndexes[i]] = i;
+      }
+      const correlation = StatisticsService.Sample_Correlation(xRanks, yRanks);
+      console.info(`Correlation: ${correlation}`);
+      return correlation;
+    } catch(err) {
+      console.error(`"Sample_RankCorrelation()" failed: ${err}`);
+      return 1;
     }
-
-    return StatisticsService.Sample_Correlation(xRanks, yRanks);
   }
 
   /**
@@ -2856,30 +3078,35 @@ class StatisticsService {
    * sampleSkewness([2, 4, 6, 3, 1]); // => 0.590128656384365
    */
   static Sample_Skewness(numbers = []) {
-    if (numbers.length < 3) throw new Error(`Requires at least three data points`);
+    try {
+      if (numbers.length < 3) throw new Error(`Requires at least three data points`);
 
-    const meanValue = StatisticsService.ArithmeticMean(numbers);
+      const meanValue = StatisticsService.ArithmeticMean(numbers);
 
-    let sumSquaredDeviations = 0;
-    let sumCubedDeviations = 0;
-    for (let i = 0; i < numbers.length; i++) {
-      let tempValue = numbers[i] - meanValue;
-      sumSquaredDeviations += tempValue * tempValue;
-      sumCubedDeviations += tempValue * tempValue * tempValue;
+      let sumSquaredDeviations = 0;
+      let sumCubedDeviations = 0;
+      for (let i = 0; i < numbers.length; i++) {
+        let tempValue = numbers[i] - meanValue;
+        sumSquaredDeviations += tempValue * tempValue;
+        sumCubedDeviations += tempValue * tempValue * tempValue;
+      }
+
+      // this is Bessels' Correction: an adjustment made to sample statistics that allows for the 
+      // reduced degree of freedom entailed in calculating values from samples rather than complete populations.
+      const besselsCorrection = numbers.length - 1;
+
+      // Find the mean value of that list
+      const theSampleStandardDeviation = Math.sqrt(sumSquaredDeviations / besselsCorrection);
+
+      const cubedS = Math.pow(theSampleStandardDeviation, 3);
+      const n = numbers.length;
+      const skewness = (n * sumCubedDeviations) / ((n - 1) * (n - 2) * cubedS);
+      console.info(`Skewness: ${skewness}`);
+      return skewness;
+    } catch(err) {
+      console.error(`"Sample_Skewness()" failed: ${err}`);
+      return 1;
     }
-
-    // this is Bessels' Correction: an adjustment made to sample statistics
-    // that allows for the reduced degree of freedom entailed in calculating
-    // values from samples rather than complete populations.
-    const besselsCorrection = numbers.length - 1;
-
-    // Find the mean value of that list
-    const theSampleStandardDeviation = Math.sqrt(sumSquaredDeviations / besselsCorrection);
-
-    const n = numbers.length;
-    const cubedS = Math.pow(theSampleStandardDeviation, 3);
-
-    return (n * sumCubedDeviations) / ((n - 1) * (n - 2) * cubedS);
   }
 
   /**
@@ -2932,24 +3159,55 @@ class StatisticsService {
    * tTestTwoSample([1, 2, 3, 4], [3, 4, 5, 6], 0); // => -2.1908902300206643
    */
   static Sample_T_Test_TwoSample(sampleX = [], sampleY = [], difference = 0) {
-    const n = sampleX.length;
-    const m = sampleY.length;
+    try {
+      const n = sampleX.length;
+      const m = sampleY.length;
 
-    if (!n || !m) return null;  // If either sample is empty return `null`.
+      if (!n || !m) return null;  // If either sample is empty return `null`.
 
-    const meanX = mean(sampleX);
-    const meanY = mean(sampleY);
-    const sampleVarianceX = sampleVariance(sampleX);
-    const sampleVarianceY = sampleVariance(sampleY);
+      const meanX = StatisticsService.ArithmeticMean(sampleX);
+      const meanY = StatisticsService.ArithmeticMean(sampleY);
+      const sampleVarianceX = StatisticsService.Variance(sampleX);
+      const sampleVarianceY = StatisticsService.Variance(sampleY);
 
-    if (typeof meanX === "number" && typeof meanY === "number" &&
-      typeof sampleVarianceX === "number" && typeof sampleVarianceY === "number"
-    ) {
-        const weightedVariance = ((n - 1) * sampleVarianceX + (m - 1) * sampleVarianceY) / (n + m - 2);
-        return (
-          (meanX - meanY - difference) /
-          Math.sqrt(weightedVariance * (1 / n + 1 / m))
-        );
+      if (typeof meanX != "number" && typeof meanY != "number" && typeof sampleVarianceX != "number" && typeof sampleVarianceY != "number") {
+        throw new Error(`Bad Inputs to function`);
+      }
+      const weightedVariance = ((n - 1) * sampleVarianceX + (m - 1) * sampleVarianceY) / (n + m - 2);
+      const t_test_two = (meanX - meanY - difference) / (Math.sqrt(weightedVariance * (1 / n + 1 / m)));
+      return t_test_two;
+    } catch(err) {
+      console.error(`"Sample_T_Test_TwoSample()" failed: ${err}`);
+      return 1;
+    }
+  }
+
+  /**
+   * Sampling with replacement is a type of sampling that allows the same item to be picked out of a population more than once.
+   *
+   * @param {Array<*>} x an array of any kind of value
+   * @param {number} n count of how many elements to take
+   * returns numbers between 0 inclusive and 1 exclusive: the range [0, 1)
+   * @return {Array} n sampled items from the population
+   * @example
+   * var values = [1, 2, 3, 4];
+   * sampleWithReplacement(values, 2); // returns 2 random values, like [2, 4];
+   */
+  static Sample_With_Replacement(array = [], n = 1) {
+    try {
+      if (Math.floor(n) !== n && n < 0) throw new Error("Chunk size must be a positive integer");
+      const length = array.length;
+      if (length < 1) return [];
+
+      let sample = [];
+      for (let i = 0; i < n; i++) {
+        const index = Math.floor(Math.random() * length);
+        sample.push(array[index]);
+      }
+      return sample;
+    } catch(err) {
+      console.error(`"Sample_With_Replacement()" failed: ${err}`);
+      return 1;
     }
   }
 
@@ -2968,11 +3226,14 @@ class StatisticsService {
    * // x is shuffled to a value like [2, 1, 4, 3]
    */
   static Shuffle(numbers = [], randomSource = Math.random) {
-    // store the current length of the x to determine when no elements remain to shuffle.
-    let length = numbers.length;
+    try {
+      if (!Array.isArray(numbers)) throw new Error("Input must be an array.");
+      if(!randomSource || typeof randomSource != typeof Function) randomSource = Math.random;
+      let length = numbers.length;  // store the current length of the x to determine when no elements remain to shuffle.
+      if(length < 1) return [];
 
-    // While there are still items to shuffle
-    while(length > 0) {
+      // While there are still items to shuffle
+      while(length > 0) {
         // choose a random index within the subset of the array that is not yet shuffled
         let index = Math.floor(randomSource() * length--);
         let temporary = numbers[length];
@@ -2980,9 +3241,13 @@ class StatisticsService {
         // swap the value at `x[length]` with `x[index]`
         numbers[length] = numbers[index];
         numbers[index] = temporary;
-    }
+      }
 
-    return numbers;
+      return numbers;
+    } catch(err) {
+      console.error(`"Shuffle()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -3022,11 +3287,10 @@ class StatisticsService {
    * silhouette([[0.25], [0.75]], [0, 0]); // => [1.0, 1.0]
    */
   static Silhouette(points, labels) {
-    if (points.length !== labels.length) throw new Error("must have exactly as many labels as points");
 
     // Create a lookup table mapping group IDs to point IDs.
-    const CreateGroups = (labels) => {
-      const numGroups = 1 + max(labels);
+    function CreateGroups(labels = []) {
+      const numGroups = 1 + StatisticsService.Max(labels);
       const result = Array(numGroups);
       for (let i = 0; i < labels.length; i++) {
         const label = labels[i];
@@ -3039,9 +3303,9 @@ class StatisticsService {
     }
 
     // Create a lookup table of all inter-point distances.
-    const CalculateAllDistances = (points) => {
-      const numPoints = points.length;
-      const result = StatisticsService.Matrix(numPoints, numPoints);
+    function CalculateAllDistances(points = []) {
+      let numPoints = points.length;
+      let result = StatisticsService.Matrix(numPoints, numPoints);
       for (let i = 0; i < numPoints; i++) {
         for (let j = 0; j < i; j++) {
           result[i][j] = StatisticsService.EuclideanDistance(points[i], points[j]);
@@ -3052,7 +3316,7 @@ class StatisticsService {
     }
 
     // Calculate the mean distance between a point and all the points in a group (possibly its own).
-    const MeanDistanceFromPointToGroup = (which, group, distances) => {
+    function MeanDistanceFromPointToGroup(which = 0, group = [], distances = []) {
       let total = 0;
       for (let i = 0; i < group.length; i++) {
         total += distances[which][group[i]];
@@ -3061,7 +3325,7 @@ class StatisticsService {
     }
 
     // Calculate the mean distance between this point and all the points in the nearest group (as determined by which point in another group is closest).
-    const MeanDistanceToNearestGroup = (which, labels, groupings, distances) => {
+    function MeanDistanceToNearestGroup(which = 0, labels = [], groupings = [], distances = []) {
       const label = labels[which];
       let result = Number.MAX_VALUE;
       for (let i = 0; i < groupings.length; i++) {
@@ -3073,20 +3337,25 @@ class StatisticsService {
       return result;
     }
 
-    
-    const groupings = CreateGroups(labels);
-    const distances = CalculateAllDistances(points);
-    const result = [];
-    for (let i = 0; i < points.length; i++) {
-      let s = 0;
-      if (groupings[labels[i]].length > 1) {
-        const a = MeanDistanceFromPointToGroup(i, groupings[labels[i]], distances);
-        const b = MeanDistanceToNearestGroup(i, labels, groupings, distances);
-        s = (b - a) / Math.max(a, b);
+    try {
+      if (points.length !== labels.length) throw new Error("Must have exactly as many labels as points");
+      const groupings = CreateGroups(labels);
+      const distances = CalculateAllDistances(points);
+      const result = [];
+      for (let i = 0; i < points.length; i++) {
+        let s = 0;
+        if (groupings[labels[i]].length > 1) {
+          const a = MeanDistanceFromPointToGroup(i, groupings[labels[i]], distances);
+          const b = MeanDistanceToNearestGroup(i, labels, groupings, distances);
+          s = (b - a) / Math.max(a, b);
+        }
+        result.push(s);
       }
-      result.push(s);
+      return result;
+    } catch(err) {
+      console.error(`"Silhouette()" failed: ${err}`);
+      return 1;
     }
-    return result;
   }
 
   /**
@@ -3102,8 +3371,13 @@ class StatisticsService {
    * silhouetteMetric([[0.25], [0.75]], [0, 0]); // => 1.0
    */
   static SilhouetteMetric(points, labels) {
-    const values = StatisticsService.Silhouette(points, labels);
-    return StatisticsService.Max(values);
+    try {
+      const values = StatisticsService.Silhouette(points, labels);
+      return StatisticsService.Max(values);
+    } catch(err) {
+      console.error(`"SilhouetteMetric()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -3141,16 +3415,17 @@ class StatisticsService {
    */
   static StandardDeviation(numbers = []) {
     try {
-      if(numbers.length < 2) throw new Error(`List is empty: ${numbers.length}`);
-
+      if(numbers.length < 1) throw new Error(`List is empty: ${numbers.length}`);
+      if(numbers.length === 1) return 0;
       let values = [];
       if (Array.isArray(numbers[0])) values = numbers.map(item => item[1]);
       else values = numbers;
 
-      const mean = StatisticsService.GeometricMean(values);
+      const mean = StatisticsService.ArithmeticMean(values);
 
       const s = Math.sqrt(values.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / values.length);
-      const standardDeviation = Math.abs(Number(s - mean).toFixed(3)) || 0;
+      const standardDeviation = Math.abs(s - mean) || 0;
+      console.warn(`Standard Deviation: +/-${standardDeviation}`);
       return standardDeviation;
     } catch(err) {
       console.error(`"StandardDeviation()" failed : ${err}`);
@@ -3172,7 +3447,12 @@ class StatisticsService {
    * subtractFromMean(20.5, 6, 53); // => 14
    */
   static SubtractFromMean(mean = 20.0, n = 10, value = 0) {
-    return (mean * n - value) / (n - 1);
+    try {
+      return (mean * n - value) / (n - 1);
+    } catch(err) {
+      console.error(`"SubtractFromMean()" failed: ${err}`);
+      return 1;
+    }
   }
 
   /**
@@ -3181,9 +3461,13 @@ class StatisticsService {
    * @returns {number} sum
    */
   static Sum(numbers = []) {
-    if(numbers.length < 1) return 0;
-    if(numbers.length == 1) return numbers[0];
-    return Number(numbers.reduce((a, b) => Number(a) + Number(b), 0)).toFixed(2);
+    try {
+      if(numbers.length < 1) return 0;
+      if(numbers.length == 1) return numbers[0];
+      return Number(numbers.reduce((a, b) => Number(a) + Number(b), 0)).toFixed(2);
+    } catch(err) {
+      console.error(`"Sum()" failed: ${err}`);
+    }
   }
 
   /**
@@ -3202,23 +3486,27 @@ class StatisticsService {
    * sumNthPowerDeviations(input, 2) / input.length;
    */
   static SumNthPowerDeviations(numbers = [], n = 2) {
-    const meanValue = StatisticsService.ArithmeticMean(numbers);
+    try {
+      const meanValue = StatisticsService.ArithmeticMean(numbers);
 
-    // This is an optimization: when n is 2 (we're computing a number squared),
-    // multiplying the number by itself is significantly faster than using
-    // the Math.pow method.
-    let sum = 0;
-    if (n === 2) {
-      for (let i = 0; i < numbers.length; i++) {
-        let tempValue = numbers[i] - meanValue;
-        sum += tempValue * tempValue;
+      // This is an optimization: when n is 2 (we're computing a number squared), multiplying the number by itself 
+      // is significantly faster than using the Math.pow method.
+      let sum = 0;
+      if (n === 2) {
+        for (let i = 0; i < numbers.length; i++) {
+          let tempValue = numbers[i] - meanValue;
+          sum += tempValue * tempValue;
+        }
+      } else {
+        for (let i = 0; i < numbers.length; i++) {
+          sum += Math.pow(numbers[i] - meanValue, n);
+        }
       }
-    } else {
-      for (let i = 0; i < numbers.length; i++) {
-        sum += Math.pow(numbers[i] - meanValue, n);
-      }
+      return sum;
+    } catch(err) {
+      console.error(`"SumNthPowerDeviations()" failed: ${err}`);
+      return 1;
     }
-    return sum;
   }
 
   /**
@@ -3340,10 +3628,75 @@ class StatisticsService {
         const zScore = (value - mean) / stdDev;
         return [key, value, zScore];
       });
+      console.info(`Z Scores: ${zScore}`);
       return zScore;
     } catch(err) {
       console.error(`"ZScore()" failed: ${err}`);
       return 1;
+    }
+  }
+
+  /**
+   * The [Z-Score, or Standard Score](http://en.wikipedia.org/wiki/Standard_score).
+   *
+   * The standard score is the number of standard deviations an observation
+   * or datum is above or below the mean. Thus, a positive standard score
+   * represents a datum above the mean, while a negative standard score
+   * represents a datum below the mean. It is a dimensionless quantity
+   * obtained by subtracting the population mean from an individual raw
+   * score and then dividing the difference by the population standard
+   * deviation.
+   *
+   * The z-score is only defined if one knows the population parameters;
+   * if one only has a sample set, then the analogous computation with
+   * sample mean and sample standard deviation yields the
+   * Student's t-statistic.
+   *
+   * @param {Array<number | [any, number]>} distribution - Data points.
+   * @param {number} stdDev - The standard deviation of the values.
+   * @returns {Array<[any, number, number]>} Array of [key, value, z-score] tuples.
+   * @throws {Error} If inputs are invalid or stdDev is zero.
+   */
+  static ZScore(distribution = [], stdDev = 0) {
+    try {
+      // Validate distribution
+      if (!Array.isArray(distribution) || distribution.length < 2) {
+        throw new Error(`Distribution must be an array with at least 2 items. Got: ${distribution?.length ?? 'undefined'}`);
+      }
+
+      if (typeof stdDev !== 'number' || !isFinite(stdDev) || stdDev <= 0) {
+        throw new Error(`Standard deviation must be a positive finite number. Got: ${stdDev}`);
+      }
+
+      // Extract numeric values for mean calculation
+      const values = distribution.map(entry => {
+        if (Array.isArray(entry)) {
+          if (entry.length < 2 || typeof entry[1] !== 'number') {
+            throw new Error(`Invalid entry format: ${JSON.stringify(entry)}`);
+          }
+          return Number(entry[1]);
+        }
+        return Number(entry);
+      });
+
+      // Use arithmetic mean (not geometric) for Z-score context
+      const sum = values.reduce((acc, x) => acc + x, 0);
+      const mean = sum / values.length;
+
+      // Compute Z-scores
+      const result = distribution.map(entry => {
+        const key = Array.isArray(entry) ? entry[0] : null;
+        const value = Array.isArray(entry) ? Number(entry[1]) : Number(entry);
+
+        const z = (value - mean) / stdDev;
+        return [key, value, z];
+      });
+
+      return result;
+
+    } catch (err) {
+      console.error(`ZScore() failed: ${err.message}`);
+      return [];
     }
   }
 
@@ -3532,4 +3885,71 @@ class PerceptronModel {
   }
 }
 
+/**
+ * Simplex Noise utility
+ * Based on: http://webstaff.itn.liu.se/~stegu/simplexnoise/simplexnoise.pdf
+ */ 
+class SimplexNoise {
+  constructor(t = 1) {
+    this.matrix_a = [
+      [1, 1, 0],
+      [-1, 1, 0],
+      [1, -1, 0],
+      [-1, -1, 0],
+      [1, 0, 1],
+      [-1, 0, 1],
+      [1, 0, -1],
+      [-1, 0, -1],
+      [0, 1, 1],
+      [0, -1, 1],
+      [0, 1, -1],
+      [0, -1, -1]
+    ];
+    this.array_o = new Uint8Array(512);
+    this.constant_r = (Math.sqrt(3) - 1) / 2;
 
+    for (let i = 0; i < 512; i++) {
+      this.array_o[i] = 255 & i;
+    }
+    for (let ax = 0; ax < 255; ax++) {
+      const rx = (t = this.Hash(ax + t)) % (256 - ax) + ax;
+      this.array_o[ax + 256] = this.array_o[ax] = this.array_o[rx];
+      this.array_o[rx + 256] = this.array_o[rx] = h;
+    }
+  }
+
+  /** @private */
+  DotProduct(t = [], a = []) {
+    return (t[0] * a[0]) + (t[1] * a[1]);
+  }
+  /** @private */
+  VectorSubtraction(t = [], a = []) {
+    return [
+      t[0] - a[0], 
+      t[1] - a[1],
+    ];
+  }
+
+  /**
+   * Noise 2D
+   */
+  Noise2D(t = []) {
+    const h = this.DotProduct(t, [ this.constant_r, this.constant_r ]);
+    const matrix_s = [ Math.floor(t[0] + h), Math.floor(t[1] + h) ];
+    const l = 255 & matrix_s[0];
+    const c = 255 & matrix_s[1];
+    const f = this.DotProduct(matrix_s, [n, n]);
+    const m = this.VectorSubtraction(t, this.VectorSubtraction(matrix_s, [f, f]));
+    const x = m[0] > m[1] ? [1, 0] : [0, 1];
+    const i = this.VectorSubtraction(this.VectorSubtraction(m, x), [-n, -n]);
+    const u = this.VectorSubtraction(m, [1 - 2 * n, 1 - 2 * n]);
+    let q = Math.max(0, 0.5 - this.DotProduct(m, m)) ** 4 * this.DotProduct(this.matrix_a[this.array_o[l + this.array_o[c]] % 12], m);
+    return q += Math.max(0, .5 - this.DotProduct(i, i)) ** 4 * this.DotProduct(this.matrix_a[this.array_o[l + x[0] + this.array_o[c + x[1]]] % 12], i), 70 * (q += Math.max(0, .5 - this.DotProduct(u, u)) ** 4 * this.DotProduct(this.matrix_a[this.array_o[l + 1 + this.array_o[c + 1]] % 12], u))
+  }
+
+  Hash(t) {
+    const x = 1103515245 * ((t = 1103515245 * (t >> 1 ^ t)) ^ t >> 3);
+    return x ^ x >> 16
+  }
+
+}
